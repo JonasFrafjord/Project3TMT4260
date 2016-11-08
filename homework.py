@@ -10,8 +10,8 @@ from matplotlib import pyplot as plt
 
 #Global variables:
 T_k = 273.15            #Celcius to Kelvin, 1 celcius
-T_m = 660.5+T_k         #Melt temp pure Al, Kelvin
-T_e = 577.0+T_k         #Eutectic temp Al-Si, Kelvin
+T_m = 660.5#+T_k         #Melt temp pure Al, Kelvin
+T_e = 577.0#+T_k         #Eutectic temp Al-Si, Kelvin
 C_s = 1.5               #Solubility of Si at T_e, wt%Si
 C_e = 12.2              #Eutectic composition, wt%Si
 k_pc = C_s/C_e          #Partitioning coefficient defined to be C_sol/C_liq, is constant due to linearised phase diagram
@@ -26,11 +26,17 @@ plt.suptitle('Weight fraction of solid as a function of temperature')
 plt.ylim(-0,1.01)
 subfig1[0].set_title('1wt%')
 subfig1[1].set_title('8wt%')
-
+subfig1[0].set_ylabel('f')
+subfig1[0].set_xlabel('T[C]')
+subfig1[1].set_xlabel('T[C]')
 # Will contain the differentiated weight fraction
-f2, subfig2 = plt.subplots(1,2, sharey=True) 
+f2, subfig2 = plt.subplots(1,2, sharey=True)
 subfig2[0].set_title('1wt%')
 subfig2[1].set_title('8wt%')
+subfig2[0].set_ylabel('df/dt')
+subfig2[0].set_xlabel('T[C]')
+subfig2[1].set_xlabel('T[C]')
+
 plt.suptitle('Weight fraction of solid differentiated with respect to temperature')
 
 #The temperature associated to a given concentration C_0, not a free variable-sol-liq
