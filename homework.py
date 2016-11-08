@@ -126,7 +126,7 @@ def homework4():
     n = [1,2,3]
     X = [[XMF(i,j,k) for k in t] for i in X_c for j in n]
     plt.figure()
- #   dXdt = [[dXMFdt(Xlist[k+1],Xlist[k-1],1/Nt) for k in range(1,Nt-1)] for Xlist in X]
+    dXdt = [[dXMFdt(Xlist[k+1],Xlist[k-1],1/Nt) for k in range(1,int(Nt)-1)] for Xlist in X]
     for Xlist in X:
         plt.plot(t,Xlist)
 
