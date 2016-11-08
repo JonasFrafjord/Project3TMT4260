@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 
 #Readme:
     #subscript t, i.e. _t, means temporary, of functional variable. It lives inside the scope of the function (most times at least)
-
+    #The main function will run when you execute the script. Here you can change which functions will run
 
 
 #Global variables:
@@ -18,12 +18,17 @@ k_pc = C_s/C_e          #Partitioning coefficient defined to be C_sol/C_liq, is 
 m_upper = (T_m-T_e)/C_e #rate of linear line sol-liq
 m_lower = (T_m-T_e)/C_s #rate of linear line sol-sol
 
-f1, subfig1 = plt.subplots(1,2, sharey=True)
+
+#This is a setup for the figures which we will plot on. The plots are added when we need to.
+#Will be a weight fraction plot
+f1, subfig1 = plt.subplots(1,2, sharey=True) 
 plt.suptitle('Weight fraction of solid as a function of temperature')
 plt.ylim(-0,1.01)
 subfig1[0].set_title('1wt%')
 subfig1[1].set_title('8wt%')
-f2, subfig2 = plt.subplots(1,2, sharey=True)
+
+# Will contain the differentiated weight fraction
+f2, subfig2 = plt.subplots(1,2, sharey=True) 
 subfig2[0].set_title('1wt%')
 subfig2[1].set_title('8wt%')
 plt.suptitle('Weight fraction of solid differentiated with respect to temperature')
@@ -63,8 +68,16 @@ def SF_scheil_dt(T_L_t, T_S_t, T_t):
     #if T_t<T_S_t: return 0 #All is solid, do not distinguish between diferent solid phases
     if T_m == T_L_t: return 1
     return (1/(k_pc-1))*(1/(T_m-T_L_t))*((T_m-T_t)/(T_m-T_L_t))**((2-k_pc)/(k_pc-1))
+#Mole fraction as a function of a referance mole fraction and time (X_c, t_s) respectively, time t and the integer n.
+def XMF(X_c_t, n, t_t, t_s_t=1.0):
+    return 1-(1-X_c_t)**((t_t/t_s_t)**n)
+#Differentiate numerically XMF as a function of time, next incriment
+def dXMFdt(X_c_plus_t, X_c_minus_t, dt_t):
+    return (x_c_plus_t-x_c_minus_t)/(2*dt_t)
+    
 
 
+#Equilibrium solution
 def homework2():
     Nt = 1e3
     T_min = T_e
@@ -82,6 +95,7 @@ def homework2():
     print('The liquid fraction at the eutectic temperature is 0 for {} wt%Si, assuming equilibrium.'.format(C_0[0]))
     print('The liquid fraction at the eutectic temperature is {0:.3f} for {1} wt%Si, assuming equilibrium.'.format(1-SF_Equi(T_L[1],T_S[1],T_e),C_0[1]))
 
+#Scheil model
 def homework3():
     Nt = 1e3
     T_min = T_e
@@ -99,12 +113,25 @@ def homework3():
     print('The liquid fraction at the eutectic temperature is {0:.3f} for {1} wt%Si in the Scheil model.'.format(1-SF_scheil(T_L[0],T_S[0],T_e),C_0[0]))
     print('The liquid fraction at the eutectic temperature is {0:.3f} for {1} wt%Si in the Scheil model.'.format(1-SF_scheil(T_L[1],T_S[1],T_e),C_0[1]))
 
+def homework4():
+    Nt = 1e3
+    t = np.linspace(0,1,Nt)
+    X_c = [0.05, 0.15]
+    n = [1,2,3]
+    X = [[XMF(i,j,k) for k in t] for i in X_c for j in n]
+    plt.figure()
+ #   dXdt = [[dXMFdt(Xlist[k+1],Xlist[k-1],1/Nt) for k in range(1,Nt-1)] for Xlist in X]
+    for Xlist in X:
+        plt.plot(t,Xlist)
+
+
 def main(argv):
-    homework2()
-    homework3()
-    subfig1[1].legend()
-    subfig2[1].legend(loc='best')
-    plt.show()
+    #homework2()
+    #homework3()
+    homework4()
+#    subfig1[1].legend()
+#    subfig2[1].legend(loc='best')
+#    plt.show()
 
 #Only run if this is a main file, and not a module
 if __name__ == "__main__":
