@@ -21,7 +21,7 @@ m_lower = (T_m-T_e)/C_s #rate of linear line sol-sol
 
 #This is a setup for the figures which we will plot on. The plots are added when we need to.
 #Will be a weight fraction plot
-if False:
+if True:
     f1, subfig1 = plt.subplots(1,2, sharey=True) 
     plt.suptitle('Weight fraction of solid as a function of temperature')
     plt.ylim(-0,1.01)
@@ -31,7 +31,7 @@ if False:
     subfig1[0].set_xlabel('T[C]')
     subfig1[1].set_xlabel('T[C]')
 # Will contain the differentiated weight fraction
-if False:
+if True:
     f2, subfig2 = plt.subplots(1,2, sharey=True)
     subfig2[0].set_title('1wt%')
     subfig2[1].set_title('8wt%')
@@ -144,13 +144,13 @@ def homework3():
 
 def homework4():
     Nt = int(1e3)
-    tmax = 5
+    tmax = 6
     t = np.linspace(0,tmax,Nt)
     X_c = [0.05, 0.15]
     n = [1,2,3]
     X = [[XMF(i,j,k) for k in t] for i in X_c for j in n]
     #plt.figure()
-    dXdt = [[dXMFdt(Xlist[k+1],Xlist[k-1],1/Nt) for k in range(1,Nt-1)] for Xlist in X]
+    dXdt = [[dXMFdt(Xlist[k+1],Xlist[k-1],tmax/Nt) for k in range(1,Nt-1)] for Xlist in X]
     nlist = np.append(n,n)
     for Xlist,n_id in zip(X,nlist):
         subfig3[0].plot(t,Xlist, label='{}'.format(n_id))
@@ -160,7 +160,7 @@ def homework4():
 
 def homework5():
     Nt = int(1e3)
-    tmax = 5
+    tmax = 6
     t = np.linspace(0,tmax,Nt)
     X_c = [0.05, 0.15]
     n = [1,2,3]
@@ -174,12 +174,12 @@ def homework5():
         subfig3[1].plot(t,Xlist, '--', label='{} (anal)'.format(n_id))
 
 def main(argv):
-    #homework2()
-    #homework3()
+    homework2()
+    homework3()
     homework4()
     homework5()
-#    subfig1[1].legend()
-#    subfig2[1].legend(loc='best')
+    subfig1[1].legend()
+    subfig2[1].legend(loc='best')
     subfig3[1].legend()
 #    subfig4[1].legend()
     plt.show()
