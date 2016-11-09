@@ -39,8 +39,8 @@ if False:
     subfig2[0].set_xlabel('T[C]')
     subfig2[1].set_xlabel('T[C]')
     plt.suptitle('Weight fraction of solid differentiated with respect to temperature')
-# HW4. Mole fraction
-if False:
+# HW4. Mole fraction, and HM5
+if True:
     f3, subfig3 = plt.subplots(1,2)
     subfig3[0].set_title('1wt%')
     subfig3[1].set_title('8wt%')
@@ -48,7 +48,7 @@ if False:
     subfig3[0].set_xlabel('T[C]')
     subfig3[1].set_xlabel('T[C]')
     plt.suptitle('Weight fraction of solid differentiated with respect to temperature')
-if True:
+if False:
     f4, subfig4 = plt.subplots(1,2)
     subfig4[0].set_title('1wt%')
     subfig4[1].set_title('8wt%')
@@ -144,7 +144,8 @@ def homework3():
 
 def homework4():
     Nt = int(1e3)
-    t = np.linspace(0,5,Nt)
+    tmax = 5
+    t = np.linspace(0,tmax,Nt)
     X_c = [0.05, 0.15]
     n = [1,2,3]
     X = [[XMF(i,j,k) for k in t] for i in X_c for j in n]
@@ -159,27 +160,28 @@ def homework4():
 
 def homework5():
     Nt = int(1e3)
-    t = np.linspace(0,5,Nt)
+    tmax = 5
+    t = np.linspace(0,tmax,Nt)
     X_c = [0.05, 0.15]
     n = [1,2,3]
     nlist = np.append(n,n)
     X_c_n = [[X_c[0],j] for j in n] + [[X_c[1],j] for j in n]
     X = [[XMF(i,j,k) for k in t] for i in X_c for j in n]
     dXdt_anal = [[dXMFdt_anal(i[k], j[0], j[1]) for k in range(Nt)] for i,j in zip(X,X_c_n)]
-    for Xlist,n_id in zip(X,nlist):
-        subfig4[0].plot(t,Xlist, label='{}'.format(n_id))
+ #   for Xlist,n_id in zip(X,nlist):
+ #       subfig3[0].plot(t,Xlist, label='{}'.format(n_id))
     for Xlist, n_id in zip(dXdt_anal,nlist):
-        subfig4[1].plot(t,Xlist, label='{}'.format(n_id))
+        subfig3[1].plot(t,Xlist, '--', label='{} (anal)'.format(n_id))
 
 def main(argv):
     #homework2()
     #homework3()
-#    homework4()
+    homework4()
     homework5()
 #    subfig1[1].legend()
 #    subfig2[1].legend(loc='best')
-#    subfig3[1].legend()
-    subfig4[1].legend()
+    subfig3[1].legend()
+#    subfig4[1].legend()
     plt.show()
 
 #Only run if this is a main file, and not a module
