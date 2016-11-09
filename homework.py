@@ -40,13 +40,21 @@ if False:
     subfig2[1].set_xlabel('T[C]')
     plt.suptitle('Weight fraction of solid differentiated with respect to temperature')
 # HW4. Mole fraction
-if True:
+if False:
     f3, subfig3 = plt.subplots(1,2)
     subfig3[0].set_title('1wt%')
     subfig3[1].set_title('8wt%')
     subfig3[0].set_ylabel('df/dt')
     subfig3[0].set_xlabel('T[C]')
     subfig3[1].set_xlabel('T[C]')
+    plt.suptitle('Weight fraction of solid differentiated with respect to temperature')
+if True:
+    f4, subfig4 = plt.subplots(1,2)
+    subfig4[0].set_title('1wt%')
+    subfig4[1].set_title('8wt%')
+    subfig4[0].set_ylabel('df/dt')
+    subfig4[0].set_xlabel('T[C]')
+    subfig4[1].set_xlabel('T[C]')
     plt.suptitle('Weight fraction of solid differentiated with respect to temperature')
 
 
@@ -92,6 +100,9 @@ def XMF(X_c_t, n, t_t, t_s_t=1.0):
 #Differentiate numerically XMF as a function of time, next incriment
 def dXMFdt(X_c_plus_t, X_c_minus_t, dt_t):
     return (X_c_plus_t-X_c_minus_t)/(2*dt_t)
+def dXMFdt_anal(X_t, X_c_t, n, t_s_t=1.0):
+    if X_t==0: return 0
+    return -(1-X_t)*math.log(1-X_t)*n/t_s_t/(math.log(1-X_t)/math.log(1-X_c_t))**(1/n)
     
 
 
@@ -132,13 +143,13 @@ def homework3():
     print('The liquid fraction at the eutectic temperature is {0:.3f} for {1} wt%Si in the Scheil model.'.format(1-SF_scheil(T_L[1],T_S[1],T_e),C_0[1]))
 
 def homework4():
-    Nt = 1e3
+    Nt = int(1e3)
     t = np.linspace(0,5,Nt)
     X_c = [0.05, 0.15]
     n = [1,2,3]
     X = [[XMF(i,j,k) for k in t] for i in X_c for j in n]
     #plt.figure()
-    dXdt = [[dXMFdt(Xlist[k+1],Xlist[k-1],1/Nt) for k in range(1,int(Nt)-1)] for Xlist in X]
+    dXdt = [[dXMFdt(Xlist[k+1],Xlist[k-1],1/Nt) for k in range(1,Nt-1)] for Xlist in X]
     nlist = np.append(n,n)
     for Xlist,n_id in zip(X,nlist):
         subfig3[0].plot(t,Xlist, label='{}'.format(n_id))
@@ -146,13 +157,29 @@ def homework4():
     for Xlist, n_id in zip(dXdt,nlist):
         subfig3[1].plot(t[1:Nt-1],Xlist, label='{}'.format(n_id))
 
+def homework5():
+    Nt = int(1e3)
+    t = np.linspace(0,5,Nt)
+    X_c = [0.05, 0.15]
+    n = [1,2,3]
+    nlist = np.append(n,n)
+    X_c_n = [[X_c[0],j] for j in n] + [[X_c[1],j] for j in n]
+    X = [[XMF(i,j,k) for k in t] for i in X_c for j in n]
+    dXdt_anal = [[dXMFdt_anal(i[k], j[0], j[1]) for k in range(Nt)] for i,j in zip(X,X_c_n)]
+    for Xlist,n_id in zip(X,nlist):
+        subfig4[0].plot(t,Xlist, label='{}'.format(n_id))
+    for Xlist, n_id in zip(dXdt_anal,nlist):
+        subfig4[1].plot(t,Xlist, label='{}'.format(n_id))
+
 def main(argv):
     #homework2()
     #homework3()
-    homework4()
+#    homework4()
+    homework5()
 #    subfig1[1].legend()
 #    subfig2[1].legend(loc='best')
-    subfig3[1].legend()
+#    subfig3[1].legend()
+    subfig4[1].legend()
     plt.show()
 
 #Only run if this is a main file, and not a module
