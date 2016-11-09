@@ -21,23 +21,35 @@ m_lower = (T_m-T_e)/C_s #rate of linear line sol-sol
 
 #This is a setup for the figures which we will plot on. The plots are added when we need to.
 #Will be a weight fraction plot
-f1, subfig1 = plt.subplots(1,2, sharey=True) 
-plt.suptitle('Weight fraction of solid as a function of temperature')
-plt.ylim(-0,1.01)
-subfig1[0].set_title('1wt%')
-subfig1[1].set_title('8wt%')
-subfig1[0].set_ylabel('f')
-subfig1[0].set_xlabel('T[C]')
-subfig1[1].set_xlabel('T[C]')
+if False:
+    f1, subfig1 = plt.subplots(1,2, sharey=True) 
+    plt.suptitle('Weight fraction of solid as a function of temperature')
+    plt.ylim(-0,1.01)
+    subfig1[0].set_title('1wt%')
+    subfig1[1].set_title('8wt%')
+    subfig1[0].set_ylabel('f')
+    subfig1[0].set_xlabel('T[C]')
+    subfig1[1].set_xlabel('T[C]')
 # Will contain the differentiated weight fraction
-f2, subfig2 = plt.subplots(1,2, sharey=True)
-subfig2[0].set_title('1wt%')
-subfig2[1].set_title('8wt%')
-subfig2[0].set_ylabel('df/dt')
-subfig2[0].set_xlabel('T[C]')
-subfig2[1].set_xlabel('T[C]')
+if False:
+    f2, subfig2 = plt.subplots(1,2, sharey=True)
+    subfig2[0].set_title('1wt%')
+    subfig2[1].set_title('8wt%')
+    subfig2[0].set_ylabel('df/dt')
+    subfig2[0].set_xlabel('T[C]')
+    subfig2[1].set_xlabel('T[C]')
+    plt.suptitle('Weight fraction of solid differentiated with respect to temperature')
+# HW4. Mole fraction
+if True:
+    f3, subfig3 = plt.subplots(1,2)
+    subfig3[0].set_title('1wt%')
+    subfig3[1].set_title('8wt%')
+    subfig3[0].set_ylabel('df/dt')
+    subfig3[0].set_xlabel('T[C]')
+    subfig3[1].set_xlabel('T[C]')
+    plt.suptitle('Weight fraction of solid differentiated with respect to temperature')
 
-plt.suptitle('Weight fraction of solid differentiated with respect to temperature')
+
 
 #The temperature associated to a given concentration C_0, not a free variable-sol-liq
 def getT_L(C_0_t):
@@ -79,7 +91,7 @@ def XMF(X_c_t, n, t_t, t_s_t=1.0):
     return 1-(1-X_c_t)**((t_t/t_s_t)**n)
 #Differentiate numerically XMF as a function of time, next incriment
 def dXMFdt(X_c_plus_t, X_c_minus_t, dt_t):
-    return (x_c_plus_t-x_c_minus_t)/(2*dt_t)
+    return (X_c_plus_t-X_c_minus_t)/(2*dt_t)
     
 
 
@@ -121,15 +133,18 @@ def homework3():
 
 def homework4():
     Nt = 1e3
-    t = np.linspace(0,1,Nt)
+    t = np.linspace(0,5,Nt)
     X_c = [0.05, 0.15]
     n = [1,2,3]
     X = [[XMF(i,j,k) for k in t] for i in X_c for j in n]
-    plt.figure()
+    #plt.figure()
     dXdt = [[dXMFdt(Xlist[k+1],Xlist[k-1],1/Nt) for k in range(1,int(Nt)-1)] for Xlist in X]
-    for Xlist in X:
-        plt.plot(t,Xlist)
-
+    nlist = np.append(n,n)
+    for Xlist,n_id in zip(X,nlist):
+        subfig3[0].plot(t,Xlist, label='{}'.format(n_id))
+    #plt.figure()
+    for Xlist, n_id in zip(dXdt,nlist):
+        subfig3[1].plot(t[1:Nt-1],Xlist, label='{}'.format(n_id))
 
 def main(argv):
     #homework2()
@@ -137,7 +152,8 @@ def main(argv):
     homework4()
 #    subfig1[1].legend()
 #    subfig2[1].legend(loc='best')
-#    plt.show()
+    subfig3[1].legend()
+    plt.show()
 
 #Only run if this is a main file, and not a module
 if __name__ == "__main__":
