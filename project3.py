@@ -37,7 +37,7 @@ lambdaL = 0.095			#Thermal conductivity liquid [W/(Celcius*mm)]
 lambdaS = 0.21			#Thermal conductivity solid [W/(Celcius*mm)]
 t_r = 6					#6 seconds simulation
 
-
+	
 #The temperature associated to a given concentration C_0. Not a free variable, but given by sol-liq-line.
 def getT_L(C_0_t):
     return T_m-m_upper*C_0_t
