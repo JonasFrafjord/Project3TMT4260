@@ -39,7 +39,7 @@ rho = 2.7e-3           #Density[g/mm^3]
 C_hc = 24.20            #Heat capacity [J/mol]
 M_mAl = 26.98          #[g/mol] Molar mass Aluminium
 rhoC = rho/M_mAl*C_hc #Volume heat capacity [J/(Celcius*mm^3)]
-print('rhoC1 = {0:.5f} J/Cmm^3'.format(rhoC2))
+#print('rhoC1 = {0:.5f} J/Cmm^3'.format(rhoC2))
 rhoC2 = 0.0027			   #Volume heat capacity [J/(Celcius*mm^3)] density dependent
 print('rhoC2 = {0:.5f} J/Cmm^3'.format(rhoC))
 #lambdaL = 0.095			#Thermal conductivity liquid Al [W/(Celcius*mm)]
@@ -132,6 +132,9 @@ def SF_scheil_dt(T_L_t, T_S_t, T_t):
     return (1/(k_pc-1))*(1/(T_m-T_L_t))*((T_m-T_t)/(T_m-T_L_t))**((2-k_pc)/(k_pc-1))
 
 ###################################################
+
+#Why is this here? If these are global. Write them in above all definitions
+
 #Choice of reference state:
 #Defined from t = t_r, T=T_r and N = N_r
 t_r = 1.0                  #Reference time, arb. chosen
@@ -182,13 +185,20 @@ def dT_next_steady_state(L_temp,rhoC_temp,dfdT_Scheil,a_max_temp):
     return a_max_temp*(L_temp/rhoC_temp*dfdT_Scheil-1)**-1
 
 def solidification():
+    #Everything that can be made global, should be made global. To make user interface more easy, have input parameters in this
+        #funtion and provide the user with a readme.
+
     #Temperature boundaries
     T_min = T_e
     T_max = T_m
     #Nucleation sites
     N = 1000
+
+    #If N = N_r, why bother?
+
     C_0 = [1.0, 4.0] # wt% Si, Alloy composition
-    
+        
+
     #Temporal discretisation
     Nt = int(1e3) 
     tmax = 6.0 #Seconds of simulation
@@ -205,6 +215,9 @@ def solidification():
     T_S = [getT_S(i) for i in C_0]
     
     T_test = [T_max-15,T_max-50]
+
+    #We should use the Scheil model instead?
+
     #Solid fraction
     F_s_eq = [SF_Equi(T_L[0],T_S[0],T_test[0]),SF_Equi(T_L[1],T_S[1], T_test[1])]
     print(F_s_eq)
@@ -238,9 +251,10 @@ def solidification():
     print(X_0)
     
     # Iteration steps
-    sim = 10
+    sim = 20
     X = np.zeros(sim)
-    X[0] = X_0[0]
+    #X[0] = X_0[0]
+    X[0] = 0.01
     f_s = np.zeros(sim)
     f_s[0] = F_s_eq[0]
     T = np.zeros(sim)
@@ -248,24 +262,34 @@ def solidification():
     t_st = np.zeros(sim)
     t_st[0] = t_star[0]
     n_=3
-    
+    t_plot = [0]    
+
+    a = 0.1
+
     #Main loop
     #for i in t:
     for i in range(sim-1):
         # --> Calc. X_next from dXMFdt_anal(...)
         t_curr = i*dt
-        X[i+1] = dXMFdt_anal(X[i],X_c[0],n_,t_curr,t_st[i])
+        t_plot.append(t_curr+dt)
+ #       T_L = getT_L()
+        X[i+1] = X[i]+dXMFdt_anal(X[i],X_c[0],n_,t_curr,t_st[i])*dt
+        #X[i+1] = dXMFdt_anal(X[i],X_c[0],n_,t_curr,t_st[i])
         # --> Calc. f_s_next from df_s/dt = f_m*dX/dt
+#        C_s = SF_scheil(T_L()) denne må oppdateres hver gang. fordi C_s er avhengig av tid. Dersom en bruker equiv
+#           så kan vi bare bruke lever rule.. men bør vel egentlig bruke scheil. Kommer ann på dt... veldig lav dt, ok med lever
         f_s[i+1] = C_s*X[i+1] # NB test with C_s, should be f_m
+        f_temp_m = SF_scheil(T_L[0], T_S[0], T[i])
         # --> Calc T_next from dT/dt = -dotQ/rhoC+L/rhoC*df_s/dt
-        dotQ = lambdaL*10 # NB better value?
+        dotQ = lambdaL*10 # NB better value? Why is this in loop? Can we express it using a. e.g. as below
+#        dotQ = a*rhoC
         dfdT_Scheil = (f_s[i+1]-f_s[i])/dt
+#        dfdT_Scheil = f_temp_m*dXMFdt_anal(X[i],X_c[0],n_,t_curr,t_st[i])
         print(dfdT_Scheil)
         T[i+1] = dT_next(dotQ,rhoC,L,dfdT_Scheil,dt,T[i])
         # --> Calc. new t_star due to temperature change
         t_st[i+1] = get_t_star(T_L[0],T[i+1],C_0[0],N,f_s[i+1],n_)
         
-    t_plot = [i*dt for i in range (sim)]
     iteration = np.arange(sim)+1
     print('Scaled volume fraction X:')
     print(X)
@@ -319,6 +343,7 @@ def solidification():
 def main(argv):
     print('Program started')
     solidification()
+    plt.show()
     #subfig1[1].legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     
 #Only run if this is a main file, and not a module
