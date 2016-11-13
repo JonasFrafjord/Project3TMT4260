@@ -106,6 +106,7 @@ if False:
     wspace = 0.3   # the amount of width reserved for blank space between subplots
     hspace = 0.5   # the amount of height reserved for white space between subplots
     plt.subplots_adjust(left, bottom, right, top, wspace, hspace)
+    
 #The temperature associated to a given concentration C_0, not a free variable-sol-liq
 def getT_L(C_0_t):
     return T_m-m_upper*C_0_t
@@ -147,8 +148,8 @@ def SF_scheil_dt(T_L_t, T_S_t, T_t):
     
 #Mole fraction as a function of a reference mole fraction and time (X_c, t_s) respectively, time t and the integer n.
 def XMF(X_c_t, n, t_t, t_s_t=1.0):
-    return 1-(1-X_c_t)**((t_t/t_s_t)**n)
-#Differentiate numerically XMF as a function of time, next incriment
+    return 1-(1-X_c_t)**((t_t/t_s_t)**n) #Alternative version of the JMA-eq.
+#Differentiate numerically XMF as a function of time, next increment
 def dXMFdt(X_c_plus_t, X_c_minus_t, dt_t):
     return (X_c_plus_t-X_c_minus_t)/(2*dt_t)
 def dXMFdt_anal(X_t, X_c_t, n, t_s_t=1.0):
@@ -171,7 +172,7 @@ def homework2():
     subfig1[1].plot(T,F_s_eq[1], label = 'Equilibrium')
     subfig2[0].plot(T,F_s_eq_dt[0], label = 'Equilibrium')
     subfig2[1].plot(T,F_s_eq_dt[1], label = 'Equilibrium')
-    print('The liquid fraction at the eutectic temperature is 0 for {} wt%Si, assuming equilibrium.'.format(C_0[0]))
+    print('The liquid fraction at the eutectic temperature is {0:.3f} for {1} wt%Si, assuming equilibrium.'.format(1-SF_Equi(T_L[0],T_S[0],T_e),C_0[0]))
     print('The liquid fraction at the eutectic temperature is {0:.3f} for {1} wt%Si, assuming equilibrium.'.format(1-SF_Equi(T_L[1],T_S[1],T_e),C_0[1]))
 
 #Scheil model 'non-eq. lever rule'
