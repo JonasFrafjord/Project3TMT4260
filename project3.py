@@ -135,8 +135,8 @@ def getT_r(T_L_t):
 
 #Time constant t_star (Applying the Hunt model, i.e. growth rate V prop. to undercooling^2/C_0
 #NB: Define all parameters (calc from chosen reference condition)
-def get_t_star(t_r_t, T_r_t, T_t, C_0_t, C_0_r_t, N_r_t, N_t, f_m_t, f_m_r_t, n_t):
-    return t_r_t*((T_m-T_r_t)/(T_m-T_t))**2*(C_0_t/C_0_r_t)*(N_r_t/N_t)**(1/n_t)*(f_m_t/f_m_r_t)**(1/n_t)
+def get_t_star(t_r_t, T_L_t, T_r_t, T_t, C_0_t, C_0_r_t, N_r_t, N_t, f_m_t, f_m_r_t, n_t):
+    return t_r_t*((T_L_t-T_r_t)/(T_L_t-T_t))**2*(C_0_t/C_0_r_t)*(N_r_t/N_t)**(1/n_t)*(f_m_t/f_m_r_t)**(1/n_t)
 
 ####################################################
 	
@@ -147,7 +147,7 @@ def XMF(X_c_t, n, t_t, t_s_t=1.0):
 def dXMFdt(X_c_plus_t, X_c_minus_t, dt_t):
     return (X_c_plus_t-X_c_minus_t)/(2*dt_t)
 #An analytic solution for dXMF/dt
-def dXMFdt_anal(X_temp,X_c_temp,n,t_temp,t_star_temp):
+def dXMFdt_anal(X_temp,X_c_temp,n,t_star_temp):
     if X_temp==0: return 0
     return -(1-X_temp)*math.log(1-X_temp)*n/t_star_temp/((math.log(1-X_temp)/math.log(1-X_c_temp))**(1/n))
 
@@ -172,7 +172,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 700, t_r=0.9, N=1000, N_r=1000, a=55, 
     #Must calculate variables which depend on reference parameters
     T_L_r = getT_L(C_0_r)
     T_S_r = getT_S(C_0_r)
-    T_r = T_L_r - 2
+    T_r = getT_r(T_L_r)
     f_m_r = SF_scheil(T_L_r, T_S_r, T_r)
     T_L_0 = getT_L(C_0)
     T_S_0 = getT_S(C_0)
@@ -193,7 +193,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 700, t_r=0.9, N=1000, N_r=1000, a=55, 
     T_L_0 = getT_L(C_0)
     T_S_0 = getT_S(C_0)
     f_m_now = SF_scheil(T_L_0, T_S_0, T_now)
-    t_s_0 = get_t_star(t_r, T_r, T_now, C_0, C_0_r, N_r, N, f_m_now, f_m_r, n)
+    t_s_0 = get_t_star(t_r, T_L_0, T_r, T_now, C_0, C_0_r, N_r, N, f_m_now, f_m_r, n)
     X_now = 0
     dXdt_ko = dXMFdt_precursor(n, t_0, 1, X_c)
     f_s_next = dt*f_m_now*dXdt_ko
@@ -213,7 +213,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 700, t_r=0.9, N=1000, N_r=1000, a=55, 
     flist = [0,0]
     Xlist = [0,0]
     for i in range(1,Nt):
-        print (f_m_now)
+        print (dXdt_now)
         T_now = T_next
         f_s_now = f_s_next
         X_now = X_next
@@ -221,8 +221,8 @@ def solidification(X_c, C_0, C_0_r, T_0 = 700, t_r=0.9, N=1000, N_r=1000, a=55, 
         T_L_now = getT_L(C_now)
         T_S_now = getT_S(C_now)
         f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
-        t_s_now = get_t_star(t_r, T_r, T_now, C_now, C_0_r, N_r, N, f_m_now, f_m_r, n)
-        dXdt_now = dXMFdt_anal(X_now, X_c, n, i*dt, t_s_now)
+        t_s_now = get_t_star(t_r, T_m, T_r, T_now, C_now, C_0_r, N_r, N, f_m_now, f_m_r, n)
+        dXdt_now = dXMFdt_anal(X_now, X_c, n, t_s_now)
         T_next = T_now-dt*a+dt*L/rhoC*f_m_now*dXdt_now
         X_next = X_now+dXdt_now*dt
         f_s_next = f_s_now+dt*f_m_now*dXdt_now
@@ -231,7 +231,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 700, t_r=0.9, N=1000, N_r=1000, a=55, 
         dfdtlist.append(f_m_now*dXdt_now)
         flist.append(f_s_now)
         Xlist.append(X_now)
-#       if i == 800: break
+ #       if i == 200: break
         if T_now < T_e+1.5:
             print(i)
             break
