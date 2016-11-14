@@ -82,13 +82,13 @@ if True:
     subfig4[1].set_ylabel(r'df$_{s}$/dt')
     plt.suptitle(r'Weight fraction of solid $\alpha$-phase (left) and time derivative (right)', position=(0.7,1.05),fontsize= 18)
     
-    left  = 0.125  # the left side of the subplots of the figure
-    right = 1.2    # the right side of the subplots of the figure
-    bottom = 0.1   # the bottom of the subplots of the figure
-    top = 0.9      # the top of the subplots of the figure
-    wspace = 0.3   # the amount of width reserved for blank space between subplots
-    hspace = 0.5   # the amount of height reserved for white space between subplots
-    plt.subplots_adjust(left, bottom, right, top, wspace, hspace)
+#    left  = 0.125  # the left side of the subplots of the figure
+#    right = 1.2    # the right side of the subplots of the figure
+#    bottom = 0.1   # the bottom of the subplots of the figure
+#    top = 0.9      # the top of the subplots of the figure
+#    wspace = 0.3   # the amount of width reserved for blank space between subplots
+#    hspace = 0.5   # the amount of height reserved for white space between subplots
+#    plt.subplots_adjust(left, bottom, right, top, wspace, hspace)
 
 if False:
     f4, subfig4 = plt.subplots(1,2)

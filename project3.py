@@ -184,7 +184,7 @@ def dT_next(dotQ_temp,rhoC_temp,L_temp,dfdT_Scheil_temp,dt_temp,T_prev_temp):
 def dT_next_steady_state(L_temp,rhoC_temp,dfdT_Scheil,a_max_temp):
     return a_max_temp*(L_temp/rhoC_temp*dfdT_Scheil-1)**-1
 
-def solidification():
+def solidification(X_c, t_r=1, N_r=1000, T_r = 600):
     #Everything that can be made global, should be made global. To make user interface more easy, have input parameters in this
         #funtion and provide the user with a readme.
 
