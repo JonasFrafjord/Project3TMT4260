@@ -27,13 +27,10 @@ T_e = 577.0#+T_k         #Eutectic temperature of binary Al-Si [K]
 C_s = 1.5               #Solubility of Si in Al at T_e, wt% Si
 C_e = 12.2              #Eutectic composition, wt% Si
 
-#C_0r = 				#Chosen reference concentration in wt% Si, starting concentration
-#X_c = 4.0					#The MoleFraction it took t_s (i.e. t_star) seconds to form
 
 k_pc = C_s/C_e          #Partitioning coefficient defined to be C_sol/C_liq, is constant due to linearised phase diagram
 m_upper = (T_m-T_e)/C_e #rate of linear line sol-liq
 m_lower = (T_m-T_e)/C_s #rate of linear line sol-sol
-#L = 0.8					#Latent heat [J/mm^3]
 L = 1.0746				#Latent heat [J/mm^3]
 rho = 2.7e-3           #Density[g/mm^3]
 C_hc = 24.20            #Heat capacity [J/mol]
@@ -42,12 +39,12 @@ rhoC = rho/M_mAl*C_hc #Volume heat capacity [J/(Celcius*mm^3)]
 #print('rhoC1 = {0:.5f} J/Cmm^3'.format(rhoC2))
 rhoC2 = 0.0027			   #Volume heat capacity [J/(Celcius*mm^3)] density dependent
 print('rhoC2 = {0:.5f} J/Cmm^3'.format(rhoC))
-#lambdaL = 0.095			#Thermal conductivity liquid Al [W/(Celcius*mm)]
-#lambdaS = 0.21			#Thermal conductivity solid Al [W/(Celcius*mm)]
 #Andre verdiar frå literaturen:
 lambdaL = 0.094			#Thermal conductivity liquid Al [W/(Celcius*mm)] @ 665 degrees Celcius
 lambdaS = 0.213			#Thermal conductivity solid Al [W/(Celcius*mm)] @ 630 degrees Celcius
 t_sim = 6.0					#6 seconds simulation
+Nt = 10000
+dt = t_sim/Nt
 
 #This is a setup for the figures which we will plot on. The plots are added when we need to.
 #Will be a weight fraction plot.
@@ -131,27 +128,15 @@ def SF_scheil_dt(T_L_t, T_S_t, T_t):
     if T_m == T_L_t: return 1
     return (1/(k_pc-1))*(1/(T_m-T_L_t))*((T_m-T_t)/(T_m-T_L_t))**((2-k_pc)/(k_pc-1))
 
-###################################################
-
-#Why is this here? If these are global. Write them in above all definitions
-
-#Choice of reference state:
-#Defined from t = t_r, T=T_r and N = N_r
-t_r = 1.0                  #Reference time, arb. chosen
-N_r = 1000                  #Reference nucleation sites, arb. chosen
 #The reference temperature
 def getT_r(T_L_t):
 	return T_L_t - 2.0
 
-# X = X_c when t = t_star
-X_c = 0.15					#Reference MoleFraction. The MoleFraction it took t_s (i.e. t_star) seconds to form
-C_0r = X_c*C_s#SF_Equi()	#Resulting reference concentration in wt% Si
-f_s_r = 2.0                #Reference volume fraction of spherical precipitates
 
 #Time constant t_star (Applying the Hunt model, i.e. growth rate V prop. to undercooling^2/C_0
 #NB: Define all parameters (calc from chosen reference condition)
-def get_t_star(T_L_temp,T_temp,C_0_temp,N_temp,f_s_temp,n):
-    return t_r*((getT_r(T_L_temp)-T_temp)/(T_L_temp-T_temp))**2*(C_0_temp/C_0r)*(N_r/N_temp)**(1/n)*(f_s_temp/f_s_r)**(1/n)
+def get_t_star(t_r_t, T_r_t, T_t, C_0_t, C_0_r_t, N_r_t, N_t, f_m_t, f_m_r_t, n_t):
+    return t_r_t*((T_m-T_r_t)/(T_m-T_t))**2*(C_0_t/C_0_r_t)*(N_r_t/N_t)**(1/n_t)*(f_m_t/f_m_r_t)**(1/n_t)
 
 ####################################################
 	
@@ -168,9 +153,8 @@ def dXMFdt_anal(X_temp,X_c_temp,n,t_temp,t_star_temp):
 
 #Precursor to differential form of MoleFraction
 #Kick-off equation
-def dXMFdt_precursor(X_c_temp, n, t_temp,t_star_temp,dt_temp,X_start_temp):
-    if X_c_temp==0: return 0
-    return X_start_temp-dt_temp*(1-X_c_temp)**((t_temp/t_star_temp)**n)*math.log(1-X_c_temp)*((t_temp/t_star_temp)**n)*n/t_temp #Solve as backward Euler
+def dXMFdt_precursor(n_t, t_t, t_s_t, X_c_t):
+    return -(1-X_c_t)**((t_t/t_s_t)**n_t)*math.log(1-X_c_t)*((t_t/t_s_t)**n_t)*n_t/t_t #Solve as backward Euler
 
 #Total solidification time, eq. 15
 def sol_time(t_eq_temp,f_eq_temp,L_temp,a_max_temp,rhoC_temp):
@@ -184,121 +168,82 @@ def dT_next(dotQ_temp,rhoC_temp,L_temp,dfdT_Scheil_temp,dt_temp,T_prev_temp):
 def dT_next_steady_state(L_temp,rhoC_temp,dfdT_Scheil,a_max_temp):
     return a_max_temp*(L_temp/rhoC_temp*dfdT_Scheil-1)**-1
 
-def solidification(X_c, t_r=1, N_r=1000, T_r = 600):
-    #Everything that can be made global, should be made global. To make user interface more easy, have input parameters in this
-        #funtion and provide the user with a readme.
-
-    #Temperature boundaries
-    T_min = T_e
-    T_max = T_m
-    #Nucleation sites
-    N = 1000
-
-    #If N = N_r, why bother?
-
-    C_0 = [1.0, 4.0] # wt% Si, Alloy composition
-        
-
-    #Temporal discretisation
-    Nt = int(1e3) 
-    tmax = 6.0 #Seconds of simulation
-    dt = tmax/Nt #Time increments
-    t = np.linspace(0,tmax,Nt)
-    X_c = [0.05, 0.15] #Reference MoleFraction
+def solidification(X_c, C_0, C_0_r, T_0 = 700, t_r=0.9, N=1000, N_r=1000, a=55, n=3):
+    #Must calculate variables which depend on reference parameters
+    T_L_r = getT_L(C_0_r)
+    T_S_r = getT_S(C_0_r)
+    T_r = T_L_r - 2
+    f_m_r = SF_scheil(T_L_r, T_S_r, T_r)
+    T_L_0 = getT_L(C_0)
+    T_S_0 = getT_S(C_0)
+    T_n = getT_n(T_L_r)
+    t_n = (T_m-T_n)/a
+    if False:
+        cl = [C_s*i/100 for i in range(100)]
+        cl1 = [C_e*i/100 for i in range(100)]
+        Tl = [getT_S(i) for i in cl]
+        Tl1 = [getT_L(i) for i in cl1]
+        plt.plot(cl, Tl)
+        plt.plot(cl1, Tl1)
+        plt.show()
+        exit()
+    #kickoff i = 0
+    T_now = T_n
+    t_0 = (T_0-T_n)/a
+    T_L_0 = getT_L(C_0)
+    T_S_0 = getT_S(C_0)
+    f_m_now = SF_scheil(T_L_0, T_S_0, T_now)
+    t_s_0 = get_t_star(t_r, T_r, T_now, C_0, C_0_r, N_r, N, f_m_now, f_m_r, n)
+    X_now = 0
+    dXdt_ko = dXMFdt_precursor(n, t_0, 1, X_c)
+    f_s_next = dt*f_m_now*dXdt_ko
+    X_next = dt*dXdt_ko
+    dXdt_now = dXdt_ko
+    t_s_now = t_s_0
     
-    #Kick-off MoleFraction
-    #X_0 = dXMFdt_precursor(...)
-    
-    #Equilibrium solid fraction
-    T_L = [getT_L(i) for i in C_0]
-    [print('T_L = {0:.2f} deg C for C_0 = {1:.2f} wt% Si'.format(getT_L(i),i)) for i in C_0]
-    T_S = [getT_S(i) for i in C_0]
-    
-    T_test = [T_max-15,T_max-50]
+    #Next temp (use variables for this time, i.e. t_0. No nucleation. i=0
+    C_now = C_0
+    T_L_now = getT_L(C_now)
+    T_S_now = getT_S(C_now)
+    f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
+    T_next = T_now-dt*a+dt*L/rhoC*f_m_now*dXdt_ko #i=1
+    Tlist = [T_0,T_n]
+    timelist =[0,t_0]
+    dfdtlist = [0,0]
+    flist = [0,0]
+    Xlist = [0,0]
+    for i in range(1,Nt):
+        print (f_m_now)
+        T_now = T_next
+        f_s_now = f_s_next
+        X_now = X_next
+        C_now = C_0+100*f_s_now
+        T_L_now = getT_L(C_now)
+        T_S_now = getT_S(C_now)
+        f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
+        t_s_now = get_t_star(t_r, T_r, T_now, C_now, C_0_r, N_r, N, f_m_now, f_m_r, n)
+        dXdt_now = dXMFdt_anal(X_now, X_c, n, i*dt, t_s_now)
+        T_next = T_now-dt*a+dt*L/rhoC*f_m_now*dXdt_now
+        X_next = X_now+dXdt_now*dt
+        f_s_next = f_s_now+dt*f_m_now*dXdt_now
+        Tlist.append(T_now)
+        timelist.append(t_0+i*dt)
+        dfdtlist.append(f_m_now*dXdt_now)
+        flist.append(f_s_now)
+        Xlist.append(X_now)
+#       if i == 800: break
+        if T_now < T_e+1.5:
+            print(i)
+            break
+    plt.plot(timelist, dfdtlist)
+    plt.figure()
+    plt.plot(timelist, Tlist)
+    plt.figure()
+    plt.plot(timelist, Xlist)
+    plt.show()
+    exit()
 
-    #We should use the Scheil model instead?
 
-    #Solid fraction
-    F_s_eq = [SF_Equi(T_L[0],T_S[0],T_test[0]),SF_Equi(T_L[1],T_S[1], T_test[1])]
-    print(F_s_eq)
-    [print('F_s_eq{0:d} = {1:.3f} wt% Si'.format(i+1,F_s_eq[i])) for i in range(2)]
-    
-    #t_star
-    t_star = [get_t_star(T_L[i],T_test[i],C_0[i],N,F_s_eq[i],n=3) for i in range(2)]
-    [print('t_star{0:d} = {1:.3f} s'.format(i+1,t_star[i])) for i in range(2)]
-
-
-    T = np.linspace(T_min, T_max, Nt)
-    #F_s_eq = [[SF_Equi(T_L[0],T_S[0], j) for j in T],[SF_Equi(T_L[1],T_S[1], j) for j in T]]
-    #F_s_eq_dt = [[SF_Equi_dt(T_L[0],T_S[0], j) for j in T],[SF_Equi_dt(T_L[1],T_S[1], j) for j in T]]
-    
-    #Scheil model 'non-eq. lever rule'
-    #F_s_sch = [[SF_scheil(T_L[0],T_S[0], j) for j in T],[SF_scheil(T_L[1],T_S[1], j) for j in T]]
-    #F_s_sch_dt = [[SF_scheil_dt(T_L[0],T_S[0], j) for j in T],[SF_scheil_dt(T_L[1],T_S[1], j) for j in T]]    
-    
-    #MoleFraction evolution
-    #n = [1,2,3]
-    #nlist = np.append(n,n)
-    #X_c_n = [[X_c[0],j] for j in n] + [[X_c[1],j] for j in n]
-    #X = [[XMF(i,j,k) for k in t] for i in X_c for j in n]
-    #dXdt_anal = [[dXMFdt_anal(i[k], j[0], j[1]) for k in range(Nt)] for i,j in zip(X,X_c_n)]
-    #plt.figure()
-    #dXdt = [[dXMFdt(Xlist[k+1],Xlist[k-1],tmax/Nt) for k in range(1,Nt-1)] for Xlist in X]
-
-
-    # Calc Kick-off value X_0 from dXMFdt_precursor(..)
-    X_0 = [dXMFdt_precursor(X_c[i], 3, 1,t_star[i],dt,F_s_eq[i]) for i in range(2)]
-    print(X_0)
-    
-    # Iteration steps
-    sim = 20
-    X = np.zeros(sim)
-    #X[0] = X_0[0]
-    X[0] = 0.01
-    f_s = np.zeros(sim)
-    f_s[0] = F_s_eq[0]
-    T = np.zeros(sim)
-    T[0] = T_test[0]
-    t_st = np.zeros(sim)
-    t_st[0] = t_star[0]
-    n_=3
-    t_plot = [0]    
-
-    a = 0.1
-
-    #Main loop
-    #for i in t:
-    for i in range(sim-1):
-        # --> Calc. X_next from dXMFdt_anal(...)
-        t_curr = i*dt
-        t_plot.append(t_curr+dt)
- #       T_L = getT_L()
-        X[i+1] = X[i]+dXMFdt_anal(X[i],X_c[0],n_,t_curr,t_st[i])*dt
-        #X[i+1] = dXMFdt_anal(X[i],X_c[0],n_,t_curr,t_st[i])
-        # --> Calc. f_s_next from df_s/dt = f_m*dX/dt
-#        C_s = SF_scheil(T_L()) denne må oppdateres hver gang. fordi C_s er avhengig av tid. Dersom en bruker equiv
-#           så kan vi bare bruke lever rule.. men bør vel egentlig bruke scheil. Kommer ann på dt... veldig lav dt, ok med lever
-        f_s[i+1] = C_s*X[i+1] # NB test with C_s, should be f_m
-        f_temp_m = SF_scheil(T_L[0], T_S[0], T[i])
-        # --> Calc T_next from dT/dt = -dotQ/rhoC+L/rhoC*df_s/dt
-        dotQ = lambdaL*10 # NB better value? Why is this in loop? Can we express it using a. e.g. as below
-#        dotQ = a*rhoC
-        dfdT_Scheil = (f_s[i+1]-f_s[i])/dt
-#        dfdT_Scheil = f_temp_m*dXMFdt_anal(X[i],X_c[0],n_,t_curr,t_st[i])
-        print(dfdT_Scheil)
-        T[i+1] = dT_next(dotQ,rhoC,L,dfdT_Scheil,dt,T[i])
-        # --> Calc. new t_star due to temperature change
-        t_st[i+1] = get_t_star(T_L[0],T[i+1],C_0[0],N,f_s[i+1],n_)
-        
-    iteration = np.arange(sim)+1
-    print('Scaled volume fraction X:')
-    print(X)
-    print('Volume fraction solid, alpha:')
-    print(f_s)
-    print('Temperature T:')
-    print(T)
-    print('t_star:')
-    print(t_st)
     
     ##################################
     #plotting
@@ -331,18 +276,10 @@ def solidification(X_c, t_r=1, N_r=1000, T_r = 600):
     #subfig2[2].plot(t_plot,f_s,'k')
     #subfig2[3].plot(iteration,t_st,'r')
     
-    # k = 1
-    # for Xlist, n_id in zip(dXdt_anal,nlist):
-    #     if k>3:
-    #         subfig1[1].plot(t,Xlist, '--', label='n = {} (anal)'.format(n_id))
-    #         k+=1
-    #     else:
-    #        subfig2[1].plot(t,Xlist, '--', label='n = {} (anal)'.format(n_id))
-    #         k+=1
             
 def main(argv):
     print('Program started')
-    solidification()
+    solidification(0.05, 4.0, 4.0)
     plt.show()
     #subfig1[1].legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     
