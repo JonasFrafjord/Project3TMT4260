@@ -42,7 +42,7 @@ print('rhoC2 = {0:.5f} J/Cmm^3'.format(rhoC))
 #Andre verdiar frå literaturen:
 lambdaL = 0.094			#Thermal conductivity liquid Al [W/(Celcius*mm)] @ 665 degrees Celcius
 lambdaS = 0.213			#Thermal conductivity solid Al [W/(Celcius*mm)] @ 630 degrees Celcius
-t_sim = 6.0					#6 seconds simulation
+t_sim = 30.0					#6 seconds simulation
 Nt = 10000
 dt = t_sim/Nt
 
@@ -123,7 +123,7 @@ def SF_scheil(T_L_t, T_S_t, T_t):
     if (1-((T_m-T_t)/(T_m-T_L_t))**(1/(k_pc-1)))< 0:return 0
     return 1-((T_m-T_t)/(T_m-T_L_t))**(1/(k_pc-1))
 #The solid weight fraction differentiated with respect to temperature
-def SF_scheil_dt(T_L_t, T_S_t, T_t):
+def SF_scheil_dT(T_L_t, T_S_t, T_t):
     if T_t>T_L_t: return 0 #No solid has been formed at this temperature
     if T_m == T_L_t: return 1
     return (1/(k_pc-1))*(1/(T_m-T_L_t))*((T_m-T_t)/(T_m-T_L_t))**((2-k_pc)/(k_pc-1))
@@ -165,10 +165,10 @@ def dT_next(dotQ_temp,rhoC_temp,L_temp,dfdT_Scheil_temp,dt_temp,T_prev_temp):
     return T_prev_temp-dt_temp*dotQ_temp/rhoC_temp+dt_temp*L_temp/rhoC_temp*dfdT_Scheil_temp
 
 #Steady state cooling rate, i.e. dynamic balance occuring when X --> 1
-def dT_next_steady_state(L_temp,rhoC_temp,dfdT_Scheil,a_max_temp):
-    return a_max_temp*(L_temp/rhoC_temp*dfdT_Scheil-1)**-1
+def dT_next_steady_state(a_t,dfdT_Scheil_t):
+    return a_t*lambdaS/lambdaL*(L/rhoC*dfdT_Scheil_t-1)**-1
 
-def solidification(X_c, C_0, C_0_r, T_0 = 700, t_r=0.9, N=1000, N_r=1000, a=55, n=3):
+def solidification(X_c, C_0, C_0_r, T_0 = 660, t_r=6, N=1000, N_r=1000, a=1.8, n=3):
     #Must calculate variables which depend on reference parameters
     T_L_r = getT_L(C_0_r)
     T_S_r = getT_S(C_0_r)
@@ -177,7 +177,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 700, t_r=0.9, N=1000, N_r=1000, a=55, 
     T_L_0 = getT_L(C_0)
     T_S_0 = getT_S(C_0)
     T_n = getT_n(T_L_r)
-    t_n = (T_m-T_n)/a
+    t_n = (T_L_0-T_n)/a
     if False:
         cl = [C_s*i/100 for i in range(100)]
         cl1 = [C_e*i/100 for i in range(100)]
@@ -195,7 +195,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 700, t_r=0.9, N=1000, N_r=1000, a=55, 
     f_m_now = SF_scheil(T_L_0, T_S_0, T_now)
     t_s_0 = get_t_star(t_r, T_L_0, T_r, T_now, C_0, C_0_r, N_r, N, f_m_now, f_m_r, n)
     X_now = 0
-    dXdt_ko = dXMFdt_precursor(n, t_0, 1, X_c)
+    dXdt_ko = dXMFdt_precursor(n, dt, 1, X_c)
     f_s_next = dt*f_m_now*dXdt_ko
     X_next = dt*dXdt_ko
     dXdt_now = dXdt_ko
@@ -212,12 +212,14 @@ def solidification(X_c, C_0, C_0_r, T_0 = 700, t_r=0.9, N=1000, N_r=1000, a=55, 
     dfdtlist = [0,0]
     flist = [0,0]
     Xlist = [0,0]
+    itt = 0
+    bool_RSS = False #Reached steady state?
     for i in range(1,Nt):
         print (dXdt_now)
         T_now = T_next
         f_s_now = f_s_next
         X_now = X_next
-        C_now = C_0+100*f_s_now
+        C_now = C_0+100*f_s_now #WRONG... this should be dependent on composition of solid. Is now uniform
         T_L_now = getT_L(C_now)
         T_S_now = getT_S(C_now)
         f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
@@ -232,14 +234,48 @@ def solidification(X_c, C_0, C_0_r, T_0 = 700, t_r=0.9, N=1000, N_r=1000, a=55, 
         flist.append(f_s_now)
         Xlist.append(X_now)
  #       if i == 200: break
+        if X_now > 1-1e-2:
+            bool_RSS = True
+            itt = i
+            break
         if T_now < T_e+1.5:
             print(i)
             break
+    if bool_RSS and False:
+        while T_now > T_e:
+            C_now = C_0+100*f_s_now
+            T_L_now = getT_L(C_now)
+            T_S_now = getT_S(C_now)
+            f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
+            dfdT = SF_scheil_dT(T_L_now, T_S_now, T_now)
+            dTdt = dT_next_steady_state(a, dfdT)
+            dT = dTdt*dt
+            f_s_now = f_s_now+dfdT*dT
+            T_now = T_now + dT
+            X_now = X_now
+            itt = itt+1
+            Tlist.append(T_now)
+            timelist.append(t_0+itt*dt)
+            dfdtlist.append(dfdT*dT/dt)
+            flist.append(f_s_now)
+            Xlist.append(X_now)
+            if(t_0+itt*dt > 33 and t_0+itt*dt < 34): print(t_0+itt*dt,f_s_now,dT)
+            if f_s_now > f_m_now:
+                print('f_s > f_m')
+                break
+            if T_now > T_L_now:
+                print('dammit',itt)
+                exit()
+            if itt*dt > t_sim:
+                print('Never reached T_e')
+                break
     plt.plot(timelist, dfdtlist)
     plt.figure()
     plt.plot(timelist, Tlist)
     plt.figure()
     plt.plot(timelist, Xlist)
+    plt.figure()
+    plt.plot(timelist,flist)
     plt.show()
     exit()
 
@@ -279,7 +315,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 700, t_r=0.9, N=1000, N_r=1000, a=55, 
             
 def main(argv):
     print('Program started')
-    solidification(0.05, 4.0, 4.0)
+    solidification(0.05, 2.0, 4.0)
     plt.show()
     #subfig1[1].legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     
