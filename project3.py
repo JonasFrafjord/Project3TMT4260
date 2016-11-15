@@ -42,7 +42,7 @@ print('rhoC2 = {0:.5f} J/Cmm^3'.format(rhoC))
 #Andre verdiar frå literaturen:
 lambdaL = 0.094			#Thermal conductivity liquid Al [W/(Celcius*mm)] @ 665 degrees Celcius
 lambdaS = 0.213			#Thermal conductivity solid Al [W/(Celcius*mm)] @ 630 degrees Celcius
-t_sim = 30.0					#6 seconds simulation
+t_sim = 90.0					#6 seconds simulation
 Nt = 10000
 dt = t_sim/Nt
 
@@ -166,9 +166,9 @@ def dT_next(dotQ_temp,rhoC_temp,L_temp,dfdT_Scheil_temp,dt_temp,T_prev_temp):
 
 #Steady state cooling rate, i.e. dynamic balance occuring when X --> 1
 def dT_next_steady_state(a_t,dfdT_Scheil_t):
-    return a_t*lambdaS/lambdaL*(L/rhoC*dfdT_Scheil_t-1)**-1
+    return a_t*lambdaS/lambdaL*(L/rhoC*dfdT_Scheil_t-1)**(-1)
 
-def solidification(X_c, C_0, C_0_r, T_0 = 660, t_r=6, N=1000, N_r=1000, a=1.8, n=3):
+def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.5, n=3):
     #Must calculate variables which depend on reference parameters
     T_L_r = getT_L(C_0_r)
     T_S_r = getT_S(C_0_r)
@@ -215,11 +215,12 @@ def solidification(X_c, C_0, C_0_r, T_0 = 660, t_r=6, N=1000, N_r=1000, a=1.8, n
     itt = 0
     bool_RSS = False #Reached steady state?
     for i in range(1,Nt):
-        print (dXdt_now)
+        print (C_now)
         T_now = T_next
         f_s_now = f_s_next
         X_now = X_next
-        C_now = C_0+100*f_s_now #WRONG... this should be dependent on composition of solid. Is now uniform
+#        C_now = C_0+100*f_s_now #WRONG... this should be dependent on composition of solid. Is now uniform
+        C_now = C_0*(1-f_s_now)**(k_pc-1) #WOOhOO, from Scheil
         T_L_now = getT_L(C_now)
         T_S_now = getT_S(C_now)
         f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
@@ -233,6 +234,9 @@ def solidification(X_c, C_0, C_0_r, T_0 = 660, t_r=6, N=1000, N_r=1000, a=1.8, n
         dfdtlist.append(f_m_now*dXdt_now)
         flist.append(f_s_now)
         Xlist.append(X_now)
+        if i*dt > t_r*1.2 and C_now < C_0_r:
+            print('noe er galt, Line238')
+            break
  #       if i == 200: break
         if X_now > 1-1e-2:
             bool_RSS = True
