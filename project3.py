@@ -42,9 +42,10 @@ print('rhoC2 = {0:.5f} J/Cmm^3'.format(rhoC))
 #Andre verdiar frå literaturen:
 lambdaL = 0.094			#Thermal conductivity liquid Al [W/(Celcius*mm)] @ 665 degrees Celcius
 lambdaS = 0.213			#Thermal conductivity solid Al [W/(Celcius*mm)] @ 630 degrees Celcius
-t_sim = 120.0					#6 seconds simulation
-Nt = 10000
-dt = t_sim/Nt
+t_sim = 320.0					#6 seconds simulation
+dt = 0.02
+Nt = math.ceil(t_sim/dt)
+#dt = t_sim/Nt
 
 #The temperature associated to a given concentration C_0. Not a free variable, but given by sol-liq-line.
 def getT_L(C_0_t):
@@ -58,8 +59,8 @@ def getT_S(C_0_t):
 #The nucleation temperature. We may delete this function and the next one, at some point. If we find it redundant.
 def getT_n(T_L_t):
 	return T_L_t - 0.1
-def getC_scheil():
-    return
+def getC_scheil(C_0_t, f_s_t):
+    return C_0_t*(1-f_s_t)**(k_pc-1)
 #The reference temperature
 def getT_r(T_L_t):
 	return T_L_t - 2.0
@@ -121,12 +122,13 @@ def dT_next(dotQ_temp,rhoC_temp,L_temp,dfdT_Scheil_temp,dt_temp,T_prev_temp):
 def dT_next_steady_state(a_t,dfdT_Scheil_t):
     return a_t*lambdaS/lambdaL*(L/rhoC*dfdT_Scheil_t-1)**(-1)
 
-def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.5, n=3):
+def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n=3):
     #Must calculate variables which depend on reference parameters
     T_L_r = getT_L(C_0_r)
     T_S_r = getT_S(C_0_r)
     T_r = getT_r(T_L_r)
     f_m_r = SF_scheil(T_L_r, T_S_r, T_r)
+    print(f_m_r)
     T_L_0 = getT_L(C_0)
     T_S_0 = getT_S(C_0)
     T_n = getT_n(T_L_r)
@@ -148,7 +150,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.5, n
     f_m_now = SF_scheil(T_L_0, T_S_0, T_now)
     t_s_0 = get_t_star(t_r, T_L_0, T_r, T_now, C_0, C_0_r, N_r, N, f_m_now, f_m_r, n)
     X_now = 0
-    dXdt_ko = dXVFdt_precursor(n, dt, t_s_0, X_c)
+    dXdt_ko = dXVFdt_precursor(n, t_s_0, X_c)
     f_s_next = dt*f_m_now*dXdt_ko
     X_next = dt*dXdt_ko
     dXdt_now = dXdt_ko
@@ -168,12 +170,12 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.5, n
     itt = 0
     bool_RSS = False #Reached steady state?
     for i in range(1,Nt):
-        print (C_now)
         T_now = T_next
         f_s_now = f_s_next
         X_now = X_next
 #        C_now = C_0+100*f_s_now #WRONG... this should be dependent on composition of solid. Is now uniform
-        C_now = C_0*(1-f_s_now)**(k_pc-1) #WOOhOO, from Scheil. I will make good code, which takes "Scheil VS Lever" as an input :D Woop Woop
+        C_now = getC_scheil(C_0,f_s_now)#C_0*(1-f_s_now)**(k_pc-1) #WOOhOO, from Scheil. I will make good code, which takes "Scheil VS Lever" as an input :D Woop Woop
+ #       if i == 6000: print(i*dt,f_s_now,f_m_now,C_now),exit()
         T_L_now = getT_L(C_now)
         T_S_now = getT_S(C_now)
         f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
@@ -188,17 +190,19 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.5, n
         dfdtlist.append(f_m_now*dXdt_now)
         flist.append(f_s_now)
         Xlist.append(X_now)
+        if T_now < T_e or T_now > T_L_now:
+            print('Temperature is crazy')
+            print(T_L_now, T_e, T_now)
+            exit()
         if f_s_now>f_m_now:
             print(i,'f_s>f_m')
             break
-        if i*dt > t_r*1.2 and C_now < C_0_r:
-            print('noe er galt, Line238')
-            break
  #       if i == 200: break
-        if X_now > 1-5e-2:
+        if X_now > 1-3e-3:
             bool_RSS = True
             itt = i
-            print(t_0+i*dt,'Line 245')
+            print(t_0+i*dt,'Done with Transient, at i={}'.format(i))
+            print(f_m_now, f_s_now, f_s_now/f_m_now)
             break
         if T_now < T_e:
             print(i)
@@ -209,19 +213,23 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.5, n
             T_L_now = getT_L(C_now)
             T_S_now = getT_S(C_now)
             f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
-            dfdT = SF_scheil_dT(T_L_now, T_S_now, T_now)
+            print(f_m_now, f_s_now)
+            dfdT = SF_scheil_dT(T_L_now, T_S_now, T_now) #This should be ok. See HW4/5
             dTdt = dT_next_steady_state(a, dfdT)
             dT = dTdt*dt
-            f_s_now = f_s_now+dfdT*dT
+            df = dfdT*dT
+            f_s_now = f_s_now+df
             T_now = T_now + dT
             X_now = f_s_now/f_m_now
             itt = itt+1
             Tlist.append(T_now)
             timelist.append(t_0+itt*dt)
-            dfdtlist.append(dfdT*dT/dt) #This should be fixed to the previous step
+            dfdtlist.append(df/dt) #This should be fixed to the previous step
             flist.append(f_s_now)
             Xlist.append(X_now)
-            if(t_0+itt*dt > 33 and t_0+itt*dt < 34): print(t_0+itt*dt,f_s_now,dT)
+            if dfdtlist[-2]/dfdtlist[-1] < 1.5 and False:
+                print('dfdt is not continous at all', itt)
+                exit()
             if f_s_now > f_m_now:
                 print(itt, 'f_s > f_m')
                 break
@@ -272,7 +280,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.5, n
             
 def main(argv):
     print('Program started')
-    solidification(0.05, 4.0, 4.0)
+    solidification(0.05, 2.0, 4.0)
     plt.show()
     
 #Only run if this is a main file, and not a module
