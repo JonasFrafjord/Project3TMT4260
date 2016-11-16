@@ -42,7 +42,7 @@ print('rhoC2 = {0:.5f} J/Cmm^3'.format(rhoC))
 #Andre verdiar frå literaturen:
 lambdaL = 0.094			#Thermal conductivity liquid Al [W/(Celcius*mm)] @ 665 degrees Celcius
 lambdaS = 0.213			#Thermal conductivity solid Al [W/(Celcius*mm)] @ 630 degrees Celcius
-t_sim = 90.0					#6 seconds simulation
+t_sim = 120.0					#6 seconds simulation
 Nt = 10000
 dt = t_sim/Nt
 
@@ -147,9 +147,9 @@ def XMF(X_c_t, n, t_t, t_s_t=1.0):
 def dXMFdt(X_c_plus_t, X_c_minus_t, dt_t):
     return (X_c_plus_t-X_c_minus_t)/(2*dt_t)
 #An analytic solution for dXMF/dt
-def dXMFdt_anal(X_temp,X_c_temp,n,t_star_temp):
-    if X_temp==0: return 0
-    return -(1-X_temp)*math.log(1-X_temp)*n/t_star_temp/((math.log(1-X_temp)/math.log(1-X_c_temp))**(1/n))
+def dXMFdt_anal(X_t,X_c_t,n,t_s_t):
+    if X_t==0: return 0
+    return -(1-X_t)*math.log(1-X_t)*n/t_s_t/(math.log(1-X_t)/math.log(1-X_c_t))**(1/n)
 
 #Precursor to differential form of MoleFraction
 #Kick-off equation
@@ -195,7 +195,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.5, n
     f_m_now = SF_scheil(T_L_0, T_S_0, T_now)
     t_s_0 = get_t_star(t_r, T_L_0, T_r, T_now, C_0, C_0_r, N_r, N, f_m_now, f_m_r, n)
     X_now = 0
-    dXdt_ko = dXMFdt_precursor(n, dt, 1, X_c)
+    dXdt_ko = dXMFdt_precursor(n, dt, t_s_0, X_c)
     f_s_next = dt*f_m_now*dXdt_ko
     X_next = dt*dXdt_ko
     dXdt_now = dXdt_ko
@@ -220,34 +220,39 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.5, n
         f_s_now = f_s_next
         X_now = X_next
 #        C_now = C_0+100*f_s_now #WRONG... this should be dependent on composition of solid. Is now uniform
-        C_now = C_0*(1-f_s_now)**(k_pc-1) #WOOhOO, from Scheil
+        C_now = C_0*(1-f_s_now)**(k_pc-1) #WOOhOO, from Scheil. I will make good code, which takes "Scheil VS Lever" as an input :D Woop Woop
         T_L_now = getT_L(C_now)
         T_S_now = getT_S(C_now)
         f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
         t_s_now = get_t_star(t_r, T_m, T_r, T_now, C_now, C_0_r, N_r, N, f_m_now, f_m_r, n)
         dXdt_now = dXMFdt_anal(X_now, X_c, n, t_s_now)
         T_next = T_now-dt*a+dt*L/rhoC*f_m_now*dXdt_now
-        X_next = X_now+dXdt_now*dt
+#        X_next = X_now+dXdt_now*dt
+        X_next = f_s_now/f_m_now
         f_s_next = f_s_now+dt*f_m_now*dXdt_now
         Tlist.append(T_now)
         timelist.append(t_0+i*dt)
         dfdtlist.append(f_m_now*dXdt_now)
         flist.append(f_s_now)
         Xlist.append(X_now)
+        if f_s_now>f_m_now:
+            print(i,'f_s>f_m')
+            break
         if i*dt > t_r*1.2 and C_now < C_0_r:
             print('noe er galt, Line238')
             break
  #       if i == 200: break
-        if X_now > 1-1e-2:
+        if X_now > 1-5e-2:
             bool_RSS = True
             itt = i
+            print(t_0+i*dt,'Line 245')
             break
-        if T_now < T_e+1.5:
+        if T_now < T_e:
             print(i)
             break
-    if bool_RSS and False:
+    if bool_RSS and True:#False:
         while T_now > T_e:
-            C_now = C_0+100*f_s_now
+            C_now = C_0*(1-f_s_now)**(k_pc-1)
             T_L_now = getT_L(C_now)
             T_S_now = getT_S(C_now)
             f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
@@ -256,16 +261,16 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.5, n
             dT = dTdt*dt
             f_s_now = f_s_now+dfdT*dT
             T_now = T_now + dT
-            X_now = X_now
+            X_now = f_s_now/f_m_now
             itt = itt+1
             Tlist.append(T_now)
             timelist.append(t_0+itt*dt)
-            dfdtlist.append(dfdT*dT/dt)
+            dfdtlist.append(dfdT*dT/dt) #This should be fixed to the previous step
             flist.append(f_s_now)
             Xlist.append(X_now)
             if(t_0+itt*dt > 33 and t_0+itt*dt < 34): print(t_0+itt*dt,f_s_now,dT)
             if f_s_now > f_m_now:
-                print('f_s > f_m')
+                print(itt, 'f_s > f_m')
                 break
             if T_now > T_L_now:
                 print('dammit',itt)
@@ -319,7 +324,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.5, n
             
 def main(argv):
     print('Program started')
-    solidification(0.05, 2.0, 4.0)
+    solidification(0.05, 4.0, 4.0)
     plt.show()
     #subfig1[1].legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     
