@@ -46,52 +46,6 @@ t_sim = 120.0					#6 seconds simulation
 Nt = 10000
 dt = t_sim/Nt
 
-#This is a setup for the figures which we will plot on. The plots are added when we need to.
-#Will be a weight fraction plot.
-if False:
-    f1, subfig1 = plt.subplots(1,2)
-    #f3.tight_layout()
-    subfig1[0].set_title(r'X$_{c}$ = 0.15',y=1.01)
-    subfig1[1].set_title(r'X$_{c}$ = 0.15',y=1.01)
-    subfig1[0].set_ylabel(r'f$_{s}$')
-    subfig1[0].set_xlabel('t [s]')
-    subfig1[1].set_xlabel('t [s]')
-    subfig1[1].set_ylabel(r'df$_{s}$/dt')
-    plt.suptitle(r'Weight fraction of solid $\alpha$-phase (left) and time derivative (right)', position=(0.7,1.05),fontsize= 18)
-    
-    left  = 0.125  # the left side of the subplots of the figure
-    right = 1.2    # the right side of the subplots of the figure
-    bottom = 0.1   # the bottom of the subplots of the figure
-    top = 0.9      # the top of the subplots of the figure
-    wspace = 0.3   # the amount of width reserved for blank space between subplots
-    hspace = 0.5   # the amount of height reserved for white space between subplots
-    plt.subplots_adjust(left, bottom, right, top, wspace, hspace)
-    
-if False:
-    f2, subfig2 = plt.subplots(4,1)
-    #f3.tight_layout()
-    subfig2[0].set_title(r'Temp',y=1.01)
-    subfig2[0].set_ylabel(r'T [$^{\circ}$C]')
-    subfig2[0].set_xlabel('t [s]')
-    subfig2[1].set_title(r'Scaled volume fraction',y=1.01)
-    subfig2[1].set_ylabel(r'X')
-    subfig2[1].set_xlabel('t [s]')
-    subfig2[2].set_title(r'Volume fraction $\alpha$',y=1.01)
-    subfig2[2].set_ylabel(r'f$_{s}$')
-    subfig2[2].set_xlabel('t [s]')
-    subfig2[3].set_title(r'Time constant t_star',y=1.01)
-    subfig2[3].set_ylabel(r't$_{star}$')
-    subfig2[3].set_xlabel('#')
-    plt.suptitle(r'Solidification of $\alpha$-phase (test-plot)', position=(0.7,1.05),fontsize= 18)
-    
-    left  = 0.125  # the left side of the subplots of the figure
-    right = 1.2    # the right side of the subplots of the figure
-    bottom = 0.3   # the bottom of the subplots of the figure
-    top = 0.9      # the top of the subplots of the figure
-    wspace = 0.3   # the amount of width reserved for blank space between subplots
-    hspace = 0.5   # the amount of height reserved for white space between subplots
-    plt.subplots_adjust(left, bottom, right, top, wspace, hspace)
-	
 #The temperature associated to a given concentration C_0. Not a free variable, but given by sol-liq-line.
 def getT_L(C_0_t):
     return T_m-m_upper*C_0_t
@@ -104,6 +58,15 @@ def getT_S(C_0_t):
 #The nucleation temperature. We may delete this function and the next one, at some point. If we find it redundant.
 def getT_n(T_L_t):
 	return T_L_t - 0.1
+def getC_scheil():
+    return
+#The reference temperature
+def getT_r(T_L_t):
+	return T_L_t - 2.0
+#Time constant t_star (Applying the Hunt model, i.e. growth rate V prop. to undercooling^2/C_0
+#NB: Define all parameters (calc from chosen reference condition)
+def get_t_star(t_r_t, T_L_t, T_r_t, T_t, C_0_t, C_0_r_t, N_r_t, N_t, f_m_t, f_m_r_t, n_t):
+    return t_r_t*((T_L_t-T_r_t)/(T_L_t-T_t))**2*(C_0_t/C_0_r_t)*(N_r_t/N_t)**(1/n_t)*(f_m_t/f_m_r_t)**(1/n_t)
  
 #The solid weight fraction at equilibrium, given by the lever rule.
 def SF_Equi(T_L_t, T_S_t, T_t):
@@ -128,33 +91,23 @@ def SF_scheil_dT(T_L_t, T_S_t, T_t):
     if T_m == T_L_t: return 1
     return (1/(k_pc-1))*(1/(T_m-T_L_t))*((T_m-T_t)/(T_m-T_L_t))**((2-k_pc)/(k_pc-1))
 
-#The reference temperature
-def getT_r(T_L_t):
-	return T_L_t - 2.0
-
-
-#Time constant t_star (Applying the Hunt model, i.e. growth rate V prop. to undercooling^2/C_0
-#NB: Define all parameters (calc from chosen reference condition)
-def get_t_star(t_r_t, T_L_t, T_r_t, T_t, C_0_t, C_0_r_t, N_r_t, N_t, f_m_t, f_m_r_t, n_t):
-    return t_r_t*((T_L_t-T_r_t)/(T_L_t-T_t))**2*(C_0_t/C_0_r_t)*(N_r_t/N_t)**(1/n_t)*(f_m_t/f_m_r_t)**(1/n_t)
 
 ####################################################
 	
-#Mole fraction as a function of a referance mole fraction and time, X_c and t_s respectively, time t and the integer n.
-def XMF(X_c_t, n, t_t, t_s_t=1.0):
+#Volume fraction as a function of a referance volume fraction and time, X_c and t_s respectively, time t and the integer n.
+def XVF(X_c_t, n, t_t, t_s_t):
     return 1-(1-X_c_t)**((t_t/t_s_t)**n)
-#Differentiate numerically XMF as a function of time, by 1st order finite difference method.
-def dXMFdt(X_c_plus_t, X_c_minus_t, dt_t):
+#Differentiate numerically XVF as a function of time, by 1st order finite difference method.
+def dXVFdt(X_c_plus_t, X_c_minus_t, dt_t):
     return (X_c_plus_t-X_c_minus_t)/(2*dt_t)
-#An analytic solution for dXMF/dt
-def dXMFdt_anal(X_t,X_c_t,n,t_s_t):
+#An analytic solution for dXVF/dt
+def dXVFdt_anal(X_t,X_c_t,n,t_s_t):
     if X_t==0: return 0
     return -(1-X_t)*math.log(1-X_t)*n/t_s_t/(math.log(1-X_t)/math.log(1-X_c_t))**(1/n)
-
 #Precursor to differential form of MoleFraction
 #Kick-off equation
-def dXMFdt_precursor(n_t, t_t, t_s_t, X_c_t):
-    return -(1-X_c_t)**((t_t/t_s_t)**n_t)*math.log(1-X_c_t)*((t_t/t_s_t)**n_t)*n_t/t_t #Solve as backward Euler
+def dXVFdt_precursor(n_t, t_s_t, X_c_t):
+    return -(1-X_c_t)**((dt/t_s_t)**n_t)*math.log(1-X_c_t)*((dt/t_s_t)**n_t)*n_t/dt #Solve as backward Euler
 
 #Total solidification time, eq. 15
 def sol_time(t_eq_temp,f_eq_temp,L_temp,a_max_temp,rhoC_temp):
@@ -195,7 +148,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.5, n
     f_m_now = SF_scheil(T_L_0, T_S_0, T_now)
     t_s_0 = get_t_star(t_r, T_L_0, T_r, T_now, C_0, C_0_r, N_r, N, f_m_now, f_m_r, n)
     X_now = 0
-    dXdt_ko = dXMFdt_precursor(n, dt, t_s_0, X_c)
+    dXdt_ko = dXVFdt_precursor(n, dt, t_s_0, X_c)
     f_s_next = dt*f_m_now*dXdt_ko
     X_next = dt*dXdt_ko
     dXdt_now = dXdt_ko
@@ -225,7 +178,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.5, n
         T_S_now = getT_S(C_now)
         f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
         t_s_now = get_t_star(t_r, T_m, T_r, T_now, C_now, C_0_r, N_r, N, f_m_now, f_m_r, n)
-        dXdt_now = dXMFdt_anal(X_now, X_c, n, t_s_now)
+        dXdt_now = dXVFdt_anal(X_now, X_c, n, t_s_now)
         T_next = T_now-dt*a+dt*L/rhoC*f_m_now*dXdt_now
 #        X_next = X_now+dXdt_now*dt
         X_next = f_s_now/f_m_now
@@ -316,17 +269,11 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.5, n
     plt.ylabel(r't$_{star}$')
     plt.title('t$_{star}$ after each iteration')
     
-    #subfig2[0].plot(t_plot,T,'b')
-    #subfig2[1].plot(t_plot,X,'g')
-    #subfig2[2].plot(t_plot,f_s,'k')
-    #subfig2[3].plot(iteration,t_st,'r')
-    
             
 def main(argv):
     print('Program started')
     solidification(0.05, 4.0, 4.0)
     plt.show()
-    #subfig1[1].legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     
 #Only run if this is a main file, and not a module
 if __name__ == "__main__":
