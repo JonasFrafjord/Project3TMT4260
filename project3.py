@@ -191,13 +191,13 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
     print('DTr',DT_r)
     print('fm/fmr', (f_m_now/f_m_r)**(1/n))
     print('Temp', T_now)
-    exit()
+ #   exit()
 
 ################ Starting itterations ###############
     for i in range(1,Nt):
-        if i < 10:
-            print(C_now)    #fluctuations
-#            print(T_now)  #small fluctuations
+        if i > 600:
+   #         print(C_now)    #fluctuations
+            print(T_now)  #small fluctuations
 #            print(dXdt_now) #large fluctiations
 #            print(X_now) #fluctuates very much
 #            print(f_m_now) #Fluctuates very much
@@ -277,10 +277,10 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
             if itt*dt > t_sim:
                 print('Never reached T_e')
                 break
-    PB = [1,1,0,0,0,0] #PlotBool
+    PB = [1,1,1,1,1,1] #PlotBool
     PL = [dfdtlist,Tlist,Xlist,flist,fmlist,Clist] #PlotList
     PN = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L'] #PlotNames
-    SF = 1 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
+    SF = 0 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
     if SF:
         firstname = True
         for PB_t,PN_t in zip(PB,PN):
