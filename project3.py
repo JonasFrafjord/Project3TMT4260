@@ -195,9 +195,10 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
 
 ################ Starting itterations ###############
     for i in range(1,Nt):
-        if i > 600:
+        if i < 10:
+            print(C_now, T_now, dXdt_now, X_now, f_m_now,'C,T,dXdt, x, f_m')
    #         print(C_now)    #fluctuations
-            print(T_now)  #small fluctuations
+#            print(T_now)  #small fluctuations
 #            print(dXdt_now) #large fluctiations
 #            print(X_now) #fluctuates very much
 #            print(f_m_now) #Fluctuates very much
