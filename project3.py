@@ -20,6 +20,11 @@ from matplotlib import pyplot as plt
 	#Nucleation temperature is assumed to be 0.1 degrees below the melting temperature, i.e. T_L-0.1
 	#The reference temperature is chosen to be 2 degrees below the melting temperature, i.e. T_L-2.0
 
+#List of input parameters, will be initiated in the main function.
+#Order of ...
+listOfInput = [0.05, 2.0, 4.0]
+
+
 #Global variables:
 T_k = 273.15            #Degrees Kelvin at 0 degrees Centigrade
 T_m = 660.5#+T_k         #Melting temperature of pure Al [K]
@@ -113,7 +118,7 @@ def dXVFdt_anal(X_t,X_c_t,n,t_s_t):
 #Kick-off equation
 def dXVFdt_precursor(n_t, t_s_t, X_c_t):
     return -(1-X_c_t)**((dt/t_s_t)**n_t)*math.log(1-X_c_t)*((dt/t_s_t)**n_t)*n_t/dt #Solve as backward Euler
-
+############# Other functions ##################
 #Total solidification time, eq. 15
 def sol_time(t_eq_temp,f_eq_temp,L_temp,a_max_temp,rhoC_temp):
     return t_eq_temp-f_eq_temp*L_temp/a_max_temp/rhoC_temp
@@ -126,36 +131,27 @@ def dT_next(dotQ_temp,rhoC_temp,L_temp,dfdT_Scheil_temp,dt_temp,T_prev_temp):
 def dT_next_steady_state(a_t,dfdT_Scheil_t):
     return a_t*lambdaS/lambdaL*(L/rhoC*dfdT_Scheil_t-1)**(-1)
 
-def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.1, n=3):
+def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n=3):
     #Must calculate variables which depend on reference parameters
     T_L_r = getT_L(C_0_r)
-    T_S_r = getT_S(C_0_r)
+    T_S_r = getT_S(C_0_r) #This is used as a control in the solid weight fraction function (Scheil/Equilibrium)
     T_r = getT_r(T_L_r)
     f_m_r = SF_scheil(T_L_r, T_S_r, T_r)
- #   print(T_L_r,T_r, f_m_r), exit()
     DT_r = T_L_r-T_r #Undercooling, is equal to 2 degrees
-#    print(f_m_r),exit()
-    if False:
-        cl = [C_s*i/100 for i in range(100)]
-        cl1 = [C_e*i/100 for i in range(100)]
-        Tl = [getT_S(i) for i in cl]
-        Tl1 = [getT_L(i) for i in cl1]
-        plt.plot(cl, Tl)
-        plt.plot(cl1, Tl1)
-        plt.show()
-        exit()
-    T_L_0 = getT_L(C_0)
-    T_S_0 = getT_S(C_0)
-    T_n = getT_n(T_L_0)
-    t_n = (T_L_0-T_n)/a
+    
+    #Constants of our system. From chosen initial values
+    T_L = getT_L(C_0)
+    T_S = getT_S(C_0)
+    T_n = getT_n(T_L)
+    t_n = (T_L-T_n)/a
 
     #Undercooling kickoff
-    DT_0 = T_L_0-T_n #Is 0.1
+    DT_0 = T_L-T_n #Is 0.1
 
     #kickoff i = 0
     T_now = T_n
     t_0 = (T_0-T_n)/a
-    f_m_0 = SF_scheil(T_L_0, T_S_0, T_now)
+    f_m_0 = SF_scheil(T_L, T_S, T_now)
  #   print((f_m_0/(2*f_m_r))**(1/3)), exit()
  #   print(f_m_now, 'f_m')
     t_s_0 = get_t_star(t_r, DT_r, DT_0, C_0, C_0_r, N_r, N, f_m_0, f_m_r, n)
@@ -174,8 +170,6 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.1, n
     f_m_prev = f_m_now
     f_s_prev = 0
     dXdt_prev = dXdt_now
-    T_L_prev = T_L_now
-    T_S_prev = T_S_now
     T_prev = T_now
 
     #Different lists
@@ -196,22 +190,17 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.1, n
 ################ Starting itterations ###############
     for i in range(1,Nt):
         
-        #Update from last itteration, since we need them
+        #Update from last itteration
         T_now = T_next      # T_now is for time j, while T_next is (j+1)
         
-        #These are defined from prev time itteration
+        #The following variables are defined from prev time itteration
         f_s_now = f_s_now+f_m_prev*dXdt_prev*dt
         X_now = X_now + dXdt_prev*dt
-        C_now = getC_scheil(C_0,f_m_prev)#C_0*(1-f_m_now)**(k_pc-1) #WOOhOO, from Scheil. I will make good code, which takes "Scheil VS Lever" as an input :D Woop Woop
+        C_now = getC_scheil(C_0, f_m_prev)
         
         #These are defined from this time itteration
-        T_L_now = T_L_now#getT_L(C_now)
-        T_S_now = getT_S(C_now)
-        DT_now  = T_L_now-T_now
-        f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
-
-        #These are defined from this time itteration
-        #t_s_now = get_t_star(t_r, DT_r, DT_now, C_now, C_0_r, N_r, N, f_m_now, f_m_r, n)
+        DT_now  = T_L-T_now
+        f_m_now = SF_scheil(T_L, T_S, T_now)
         t_s_now = get_t_star(t_r, DT_r, DT_now, C_0, C_0_r, N_r, N, f_m_now, f_m_r, n)
         dXdt_now = dXVFdt_anal(X_now, X_c, n, t_s_now)
         T_next = T_now-dt*a+dt*L/rhoC*f_m_now*dXdt_now
@@ -220,8 +209,6 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.1, n
         f_m_prev = f_m_now
         f_s_prev = f_s_now
         dXdt_prev = dXdt_now
-        T_L_prev = T_L_now
-        T_S_prev = T_S_now
         T_prev = T_now
 
 
@@ -233,28 +220,17 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.1, n
         Clist.append(C_now)
         fmlist.append(f_m_now)
         dTdtlist.append((-a+L/rhoC*f_m_now*dXdt_now))
-        if i < 10:
-            print(C_now, T_now, dXdt_now, X_now, f_m_now,'C,T,dXdt, x, f_m')
-   #         print(C_now)    #fluctuations
-#            print(T_now)  #small fluctuations
-#            print(dXdt_now) #large fluctiations
-#            print(X_now) #fluctuates very much
-#            print(f_m_now) #Fluctuates very much
-#            print(f_s_now) #No fluctuations, since f_m is "always" positive
-
-#        if fmlist[-1]/fmlist[-2]<1:
-#            print(i)
-#            break
-        if T_now < T_e or T_now > T_L_now:
+        
+        #Code control
+        if T_now < T_e or T_now > T_L:
             print('Temperature is crazy')
-            print(T_L_now, T_e, T_now, 'T_L, T_e and T at i=',i)
- #           exit()
+            print(T_L, T_e, T_now, 'T_L, T_e and T at i=',i)
+            exit()
             break
         if f_s_now>f_m_now:
             print(i,'Transient, f_s>f_m')
             exit()
             break
- #       if i == 200: break
         if X_now > 1-5e-2:
             bool_RSS = True
             itt = i
@@ -264,13 +240,11 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.1, n
         if T_now < T_e:
             print(i)
             break
-    if bool_RSS and 0:
+    if bool_RSS and 1:
         while T_now > T_e:
-            C_now = C_0*(1-f_m_now)**(k_pc-1)
-            T_L_now = T_L_now
-            T_S_now = getT_S(C_now)
-            f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
-            dfdT = SF_scheil_dT(T_L_now, T_S_now, T_now) #This should be ok. See HW4/5
+            C_now = getC_scheil(C_0,f_m_now)#C_0*(1-f_m_now)**(k_pc-1)
+            f_m_now = SF_scheil(T_L, T_S, T_now)
+            dfdT = SF_scheil_dT(T_L, T_S, T_now)
             dTdt = dT_next_steady_state(a, dfdT)
             dT = dTdt*dt
             df = dfdT*dTdt*dt
