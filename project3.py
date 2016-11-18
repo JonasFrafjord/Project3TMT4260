@@ -108,7 +108,7 @@ def dXVFdt(X_c_plus_t, X_c_minus_t, dt_t):
 #An analytic solution for dXVF/dt
 def dXVFdt_anal(X_t,X_c_t,n,t_s_t):
     if X_t==0: return 0
-    return -(1-X_t)*math.log(1-X_t)*n/t_s_t/(math.log(1-X_t)/math.log(1-X_c_t))**(1/n)
+    return -(1-X_t)*math.log(1-X_t)*n/(t_s_t*(math.log(1-X_t)/math.log(1-X_c_t))**(1/n))
 #Precursor to differential form of MoleFraction
 #Kick-off equation
 def dXVFdt_precursor(n_t, t_s_t, X_c_t):
@@ -126,7 +126,7 @@ def dT_next(dotQ_temp,rhoC_temp,L_temp,dfdT_Scheil_temp,dt_temp,T_prev_temp):
 def dT_next_steady_state(a_t,dfdT_Scheil_t):
     return a_t*lambdaS/lambdaL*(L/rhoC*dfdT_Scheil_t-1)**(-1)
 
-def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n=3):
+def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.1, n=3):
     #Must calculate variables which depend on reference parameters
     T_L_r = getT_L(C_0_r)
     T_S_r = getT_S(C_0_r)
@@ -134,7 +134,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
     f_m_r = SF_scheil(T_L_r, T_S_r, T_r)
  #   print(T_L_r,T_r, f_m_r), exit()
     DT_r = T_L_r-T_r #Undercooling, is equal to 2 degrees
-
+#    print(f_m_r),exit()
     if False:
         cl = [C_s*i/100 for i in range(100)]
         cl1 = [C_e*i/100 for i in range(100)]
@@ -150,26 +150,18 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
     t_n = (T_L_0-T_n)/a
 
     #Undercooling kickoff
-    DT_now = T_L_0-T_n #Is 0.1
+    DT_0 = T_L_0-T_n #Is 0.1
 
     #kickoff i = 0
     T_now = T_n
     t_0 = (T_0-T_n)/a
-    f_m_now = SF_scheil(T_L_0, T_S_0, T_now)
-    print(f_m_now, 'f_m')
-    t_s_0 = get_t_star(t_r, DT_r, DT_now, C_0, C_0_r, N_r, N, f_m_now, f_m_r, n)
-    print(f_m_r, 'f_m_r')
-    print('ts',t_s_0)
+    f_m_0 = SF_scheil(T_L_0, T_S_0, T_now)
+ #   print((f_m_0/(2*f_m_r))**(1/3)), exit()
+ #   print(f_m_now, 'f_m')
+    t_s_0 = get_t_star(t_r, DT_r, DT_0, C_0, C_0_r, N_r, N, f_m_0, f_m_r, n)
     X_now = 0
     dXdt_ko = dXVFdt_precursor(n, t_s_0, X_c)
     dXdt_now = dXdt_ko
-    print('dxdt',dXdt_now)
-    f_s_next = dt*f_m_now*dXdt_now
-    print(f_s_next, 'f_s')
-#    X_next = f_s_now/f_m_now
-    X_next = dt*dXdt_ko
-    t_s_now = t_s_0
-    
     
     #Next temp (use variables for this time, i.e. t_0. No nucleation. i=0
     C_now = C_0
@@ -177,6 +169,14 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
     T_S_now = getT_S(C_now)
     f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
     T_next = T_now-dt*a+dt*L/rhoC*f_m_now*dXdt_now #i=1, from i=0 values
+
+    #All X related should be determined from last step, we need prev values
+    f_m_prev = f_m_now
+    f_s_prev = 0
+    dXdt_prev = dXdt_now
+    T_L_prev = T_L_now
+    T_S_prev = T_S_now
+    T_prev = T_now
 
     #Different lists
     Tlist = [T_0,T_n]
@@ -186,18 +186,53 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
     Xlist = [0,0]
     Clist = [C_0, C_now]
     fmlist = [f_m_now, f_m_now]
+    dTdtlist = [-a,-a]
 
+    X_now = 0 #initiate
+    f_s_now = 0
     itt = 0
     bool_RSS = False #Reached steady state?
-    print('x',X_next)
-    print('DT',DT_now)
-    print('DTr',DT_r)
-    print('fm/fmr', (f_m_now/f_m_r)**(1/n))
-    print('Temp', T_now)
- #   exit()
 
 ################ Starting itterations ###############
     for i in range(1,Nt):
+        
+        #Update from last itteration, since we need them
+        T_now = T_next      # T_now is for time j, while T_next is (j+1)
+        
+        #These are defined from prev time itteration
+        f_s_now = f_s_now+f_m_prev*dXdt_prev*dt
+        X_now = X_now + dXdt_prev*dt
+        C_now = getC_scheil(C_0,f_m_prev)#C_0*(1-f_m_now)**(k_pc-1) #WOOhOO, from Scheil. I will make good code, which takes "Scheil VS Lever" as an input :D Woop Woop
+        
+        #These are defined from this time itteration
+        T_L_now = T_L_now#getT_L(C_now)
+        T_S_now = getT_S(C_now)
+        DT_now  = T_L_now-T_now
+        f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
+
+        #These are defined from this time itteration
+        #t_s_now = get_t_star(t_r, DT_r, DT_now, C_now, C_0_r, N_r, N, f_m_now, f_m_r, n)
+        t_s_now = get_t_star(t_r, DT_r, DT_now, C_0, C_0_r, N_r, N, f_m_now, f_m_r, n)
+        dXdt_now = dXVFdt_anal(X_now, X_c, n, t_s_now)
+        T_next = T_now-dt*a+dt*L/rhoC*f_m_now*dXdt_now
+
+        #Redefine _prev for next itteration
+        f_m_prev = f_m_now
+        f_s_prev = f_s_now
+        dXdt_prev = dXdt_now
+        T_L_prev = T_L_now
+        T_S_prev = T_S_now
+        T_prev = T_now
+
+
+        Tlist.append(T_now)
+        timelist.append(t_0+i*dt)
+        dfdtlist.append(f_m_now*dXdt_now)
+        flist.append(f_s_now)
+        Xlist.append(X_now)
+        Clist.append(C_now)
+        fmlist.append(f_m_now)
+        dTdtlist.append((-a+L/rhoC*f_m_now*dXdt_now))
         if i < 10:
             print(C_now, T_now, dXdt_now, X_now, f_m_now,'C,T,dXdt, x, f_m')
    #         print(C_now)    #fluctuations
@@ -206,56 +241,35 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
 #            print(X_now) #fluctuates very much
 #            print(f_m_now) #Fluctuates very much
 #            print(f_s_now) #No fluctuations, since f_m is "always" positive
-        T_now = T_next
-        f_s_now = f_s_next
-        X_now = X_next
-        C_now = getC_scheil(C_0,f_m_now)#C_0*(1-f_m_now)**(k_pc-1) #WOOhOO, from Scheil. I will make good code, which takes "Scheil VS Lever" as an input :D Woop Woop
-        T_L_now = getT_L(C_now)
-        T_S_now = getT_S(C_now)
-        f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
-        DT_now  = T_L_now-T_now
-        t_s_now = get_t_star(t_r, DT_r, DT_now, C_now, C_0_r, N_r, N, f_m_now, f_m_r, n)
-        dXdt_now = dXVFdt_anal(X_now, X_c, n, t_s_now)
-        T_next = T_now-dt*a+dt*L/rhoC*f_m_now*dXdt_now
-#        X_next = X_now+dXdt_now*dt
-        X_next = f_s_now/f_m_now
-        f_s_next = f_s_now+dt*f_m_now*dXdt_now
-        Tlist.append(T_now)
-        timelist.append(t_0+i*dt)
-        dfdtlist.append(f_m_now*dXdt_now)
-        flist.append(f_s_now)
-        Xlist.append(X_now)
-        Clist.append(C_now)
-        fmlist.append(f_m_now)
+
 #        if fmlist[-1]/fmlist[-2]<1:
 #            print(i)
 #            break
         if T_now < T_e or T_now > T_L_now:
             print('Temperature is crazy')
             print(T_L_now, T_e, T_now, 'T_L, T_e and T at i=',i)
-            exit()
-            #break
+ #           exit()
+            break
         if f_s_now>f_m_now:
-            print(i,'f_s>f_m')
+            print(i,'Transient, f_s>f_m')
             exit()
             break
  #       if i == 200: break
-        if X_now > 1-1e-4:
+        if X_now > 1-5e-2:
             bool_RSS = True
             itt = i
-            print(t_0+i*dt,'Done with Transient, at i={}'.format(i))
+            print(t_0+i*dt,'Done with Transient, at i={}'.format(i),T_now)
             print(f_m_now, f_s_now, f_s_now/f_m_now)
             break
         if T_now < T_e:
             print(i)
             break
-    if bool_RSS and True:#False:
+    if bool_RSS and 0:
         while T_now > T_e:
-            C_now = C_0*(1-f_s_now)**(k_pc-1)
-            T_L_now = getT_L(C_now)
+            C_now = C_0*(1-f_m_now)**(k_pc-1)
+            T_L_now = T_L_now
             T_S_now = getT_S(C_now)
             f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
-            print(f_m_now, f_s_now)
             dfdT = SF_scheil_dT(T_L_now, T_S_now, T_now) #This should be ok. See HW4/5
             dTdt = dT_next_steady_state(a, dfdT)
             dT = dTdt*dt
@@ -270,6 +284,8 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
             flist.append(f_s_now)
             Xlist.append(X_now)
             Clist.append(C_now)
+            fmlist.append(f_m_now)
+            dTdtlist.append(dTdt)
             if dfdtlist[-2]/dfdtlist[-1] < 1.5 and False:
                 print('dfdt is not continous at all', itt)
                 exit()
@@ -282,10 +298,11 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
             if itt*dt > t_sim:
                 print('Never reached T_e')
                 break
-    PB = [1,1,0,0,0,0] #PlotBool
-    PL = [dfdtlist,Tlist,Xlist,flist,fmlist,Clist] #PlotList
-    PN = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L'] #PlotNames
-    SF = 1 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
+    PB = [1,1,0,0,0,0,0] #PlotBool
+    PB = [1,1,1,1,1,1,1] #PlotBool
+    PL = [dfdtlist,Tlist,Xlist,flist,fmlist,Clist,dTdtlist] #PlotList
+    PN = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L','dTdt'] #PlotNames
+    SF = 0 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
     if SF:
         firstname = True
         for PB_t,PN_t in zip(PB,PN):
