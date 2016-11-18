@@ -46,6 +46,7 @@ t_sim = 320.0					#6 seconds simulation
 dt = 0.01
 Nt = math.ceil(t_sim/dt)
 
+##################### All getStuff is defined here ##############
 #The temperature associated to a given concentration C_0. Not a free variable, but given by sol-liq-line.
 def getT_L(C_0_t):
     return T_m-m_upper*C_0_t
@@ -68,6 +69,8 @@ def getT_r(T_L_t):
 def get_t_star(t_r_t, DT_r_t, DT_t, C_0_t, C_0_r_t, N_r_t, N_t, f_m_t, f_m_r_t, n_t):
     return t_r_t*(DT_r_t/DT_t)**2*(C_0_t/C_0_r_t)*(N_r_t/N_t)**(1/n_t)*(f_m_t/f_m_r_t)**(1/n_t)
  
+
+######################## Solid weight fraction below #################
 #The solid weight fraction at equilibrium, given by the lever rule.
 def SF_Equi(T_L_t, T_S_t, T_t):
     if T_t>T_L_t: return 0 #No solid has been formed at this temperature
@@ -94,7 +97,7 @@ def SF_scheil_dT(T_L_t, T_S_t, T_t):
 def SF_eutectic(C_0_t):
     return C_e*math.exp(1/(k_pc-1))/C_0_t
 
-####################################################
+###################### Volume fraction ##########################
 	
 #Volume fraction as a function of a referance volume fraction and time, X_c and t_s respectively, time t and the integer n.
 def XVF(X_c_t, n, t_t, t_s_t):
@@ -127,11 +130,10 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
     #Must calculate variables which depend on reference parameters
     T_L_r = getT_L(C_0_r)
     T_S_r = getT_S(C_0_r)
-    T_L_0 = getT_L(C_0)
     T_r = getT_r(T_L_r)
     f_m_r = SF_scheil(T_L_r, T_S_r, T_r)
  #   print(T_L_r,T_r, f_m_r), exit()
-    DT_r = T_L_r-T_r
+    DT_r = T_L_r-T_r #Undercooling, is equal to 2 degrees
 
     if False:
         cl = [C_s*i/100 for i in range(100)]
@@ -148,7 +150,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
     t_n = (T_L_0-T_n)/a
 
     #Undercooling kickoff
-    DT_now = T_L_0-T_n
+    DT_now = T_L_0-T_n #Is 0.1
 
     #kickoff i = 0
     T_now = T_n
@@ -162,8 +164,9 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
     dXdt_ko = dXVFdt_precursor(n, t_s_0, X_c)
     dXdt_now = dXdt_ko
     print('dxdt',dXdt_now)
-    f_s_next = dt*f_m_now*dXdt_ko
+    f_s_next = dt*f_m_now*dXdt_now
     print(f_s_next, 'f_s')
+#    X_next = f_s_now/f_m_now
     X_next = dt*dXdt_ko
     t_s_now = t_s_0
     
@@ -173,7 +176,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
     T_L_now = getT_L(C_now)
     T_S_now = getT_S(C_now)
     f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
-    T_next = T_now-dt*a+dt*L/rhoC*f_m_now*dXdt_ko #i=1
+    T_next = T_now-dt*a+dt*L/rhoC*f_m_now*dXdt_now #i=1, from i=0 values
 
     #Different lists
     Tlist = [T_0,T_n]
@@ -201,10 +204,11 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
 #            print(dXdt_now) #large fluctiations
 #            print(X_now) #fluctuates very much
 #            print(f_m_now) #Fluctuates very much
+#            print(f_s_now) #No fluctuations, since f_m is "always" positive
         T_now = T_next
         f_s_now = f_s_next
         X_now = X_next
-        C_now = getC_scheil(C_0,f_m_now)#C_0*(1-f_s_now)**(k_pc-1) #WOOhOO, from Scheil. I will make good code, which takes "Scheil VS Lever" as an input :D Woop Woop
+        C_now = getC_scheil(C_0,f_m_now)#C_0*(1-f_m_now)**(k_pc-1) #WOOhOO, from Scheil. I will make good code, which takes "Scheil VS Lever" as an input :D Woop Woop
         T_L_now = getT_L(C_now)
         T_S_now = getT_S(C_now)
         f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
@@ -227,7 +231,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
 #            break
         if T_now < T_e or T_now > T_L_now:
             print('Temperature is crazy')
-            print(T_L_now, T_e, T_now, 'at i=',i)
+            print(T_L_now, T_e, T_now, 'T_L, T_e and T at i=',i)
             exit()
             #break
         if f_s_now>f_m_now:
@@ -277,10 +281,10 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
             if itt*dt > t_sim:
                 print('Never reached T_e')
                 break
-    PB = [1,1,1,1,1,1] #PlotBool
+    PB = [1,1,0,0,0,0] #PlotBool
     PL = [dfdtlist,Tlist,Xlist,flist,fmlist,Clist] #PlotList
     PN = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L'] #PlotNames
-    SF = 0 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
+    SF = 1 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
     if SF:
         firstname = True
         for PB_t,PN_t in zip(PB,PN):
@@ -304,28 +308,6 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
 
 #################### Better solution above
     exit()
-    plt.plot(timelist, dfdtlist)
-    plt.title('dfdt')
-    plt.figure()
-#    plt.plot(timelist+[220], Tlist+[Tlist[-1]])
-#    plt.ylim(0,670)
-    plt.plot(timelist, Tlist)
-    plt.title('Temp')
-    plt.figure()
-    plt.plot(timelist, Xlist)
-    plt.title('X')
-    plt.figure()
-    plt.title('f_s')
-    plt.plot(timelist,flist)
-    plt.figure()
-    plt.title('f_m')
-    plt.plot(timelist,fmlist)
-    plt.figure()
-    plt.title('C_L')
-    plt.plot(timelist,Clist)
-    plt.show()
-    exit()
-
 
     
     ##################################
