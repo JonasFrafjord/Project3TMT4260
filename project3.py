@@ -23,7 +23,10 @@ from matplotlib import pyplot as plt
 #List of input parameters, will be initiated in the main function.
     #listOfInput is orginaised as follows: [X_c, C_0, C_0_r, T_0, t_r, Nfrac, a, n, Scheil]
     #Where Nfrac is Nr/N
-listOfInput = [0.05, 7.6, 4.0, 670, 6, 1, 1, 3, True]
+    #Both C_0 and N_frac might be list, but not at the same time. Then write [C_0_0, C_0_1, C_0_2...] in stead of one number. Will then only plot the temperature evolution
+#listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, 3, True]
+#listOfInput = [0.05, [2.0,4.0,5.5, 7.0,6.0,7.6], 4.0, 670, 6, 1, 1, 3, True]
+listOfInput = [0.05, 2.0, 4.0, 670, 6, [0.01,0.1,0.2,0.5,0.8,1,2,3,4,5,10], 1, 3, True]
 
 
 #Global variables:
@@ -48,7 +51,7 @@ print('rhoC = {0:.5f} J/Cmm^3'.format(rhoC))
 #Andre verdiar frå literaturen:
 lambdaL = 0.094			#Thermal conductivity liquid Al [W/(Celcius*mm)] @ 665 degrees Celcius
 lambdaS = 0.213			#Thermal conductivity solid Al [W/(Celcius*mm)] @ 630 degrees Celcius
-t_sim = 320.0					#6 seconds simulation
+t_sim = 250.0					#6 seconds simulation
 dt = 0.01
 Nt = math.ceil(t_sim/dt)
 
@@ -132,7 +135,7 @@ def dT_next(dotQ_temp,rhoC_temp,L_temp,dfdT_Scheil_temp,dt_temp,T_prev_temp):
 def dT_next_steady_state(a_t,dfdT_Scheil_t):
     return a_t*lambdaS/lambdaL*(L/rhoC*dfdT_Scheil_t-1)**(-1)
 
-def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil):
+def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara, paraName=0):
     if Scheil:
         SF_fun = SF_Scheil
         SF_fun_dT = SF_Scheil_dT
@@ -292,14 +295,21 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil):
             if T_now > T_L:
                 print('T_now > T_L',itt)
                 exit()
-
-    SF = 1 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
+    timelist.append(t_sim)
+    Tlist.append(T_e)
+    SF = 0 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
     PB = [1,1,0,0,0,0,0] #PlotBool
  #   PB = [1,1,1,1,1,1,1] #PlotBool
     PL = [dfdtlist,Tlist,Xlist,flist,fmlist,Clist,dTdtlist] #PlotList
     PN = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L', 'dTdt'] #PlotNames
     PY = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L', 'dTdt']
     PX = 't [s]'
+    if testPara:
+        plt.plot(timelist, PL[1], label = paraName)
+        plt.title(PN[1])
+        plt.xlabel(PX[1])
+        plt.ylabel(PY[1])
+        return 0 
     if SF:
         firstname = True
         for PB_t,PN_t in zip(PB,PN):
@@ -322,13 +332,25 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil):
                 plt.xlabel(PX)
                 plt.ylabel(PY_t)
 def main(argv):
+    #listOfInput is orginaised as follows: [X_c, C_0, C_0_r, T_0, t_r, Nfrac, a, n, Scheil]
     loi = listOfInput
     if loi[-1]:
         func = "Scheil method"
     else:
         func = "Lever-rule method"
     print('Program started. Using the ', func)
-    solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8])
+    if type(loi[1]) == type([]):
+        plt.figure()
+        for C_0_ in loi[1]:
+            solidification(loi[0], C_0_, loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8], True, "C0="+str(C_0_))
+    elif type(loi[5]) == type([]):
+        plt.figure()
+        for N_frac_ in loi[5]:
+            print('Started running using standard input parameters and N_frac={}\n'.format(N_frac_))
+            solidification(loi[0], loi[1], loi[2], loi[3], loi[4], N_frac_, loi[6], loi[7], loi[8], True, "N_frac="+str(N_frac_))
+    else:
+        solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8], False)
+    plt.legend()
     plt.show()
     
 #Only run if this is a main file, and not a module
