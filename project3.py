@@ -26,8 +26,8 @@ from matplotlib import pyplot as plt
     #Both C_0 and N_frac might be list, but not at the same time. Then write [C_0_0, C_0_1, C_0_2...] in stead of one number. Will then only plot the temperature evolution
 
 # Change of input parameters keeping all but one fixed:
-listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, 3, True]                                    # <--- Standard input parameters
-#listOfInput = [0.05, [2.0,4.0,5.5, 7.0,6.0,7.6], 4.0, 670, 6, 1, 1, 3, True]             # <--- Variation of the C_0/C_0_r ratio
+#listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, 3, True]                                    # <--- Standard input parameters
+listOfInput = [0.05, [2.0,4.0,5.5, 7.0,6.0,7.6], 4.0, 670, 6, 1, 1, 3, True]             # <--- Variation of the C_0/C_0_r ratio
 #listOfInput = [0.05, 2.0, 4.0, 670, 6, [0.01,0.1,0.2,0.5,0.8,1,2,3,4,5,10], 1, 3, True]  # <--- Variation of the N_r/N ratio
 #listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, [0.05,0.1,0.5,1], 3, True]                     # <--- Variation of the external cooling rate a = L/(rho*c) <--- Low rates
 #listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, [5,10,25,50], 3, True]                         # <--- Variation of the external cooling rate a = L/(rho*c) <--- High rates
@@ -130,8 +130,8 @@ def dXVFdt_precursor(n_t, t_s_t, X_c_t):
     return -(1-X_c_t)**((dt/t_s_t)**n_t)*math.log(1-X_c_t)*((dt/t_s_t)**n_t)*n_t/dt #Solve as backward Euler
 ############# Other functions ##################
 #Total solidification time, eq. 15
-def sol_time(t_eq_temp,f_eq_temp,L_temp,a_max_temp,rhoC_temp):
-    return t_eq_temp-f_eq_temp*L_temp/a_max_temp/rhoC_temp
+def get_sol_time(t_eut_t,f_eut_t,L_t,a_t,rhoC_t):
+    return t_eut_t+f_eut_t*L_t/(a_t*lambdaS/lambdaL)/rhoC_t
     
 #Intrinsic cooling rate during solidification
 def dT_next(dotQ_temp,rhoC_temp,L_temp,dfdT_Scheil_temp,dt_temp,T_prev_temp):
@@ -218,12 +218,11 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara, pa
         dXdt_now = dXVFdt_anal(X_now, X_c, n, t_s_now)
         T_next = T_now-dt*a+dt*L/rhoC*f_m_now*dXdt_now
 
-        #Redefine _prev for next itteration
+        #Redefine _prev for next iteration
         f_m_prev = f_m_now
         f_s_prev = f_s_now
         dXdt_prev = dXdt_now
         T_prev = T_now
-
 
         Tlist.append(T_now)
         timelist.append(t_0+i*dt)
@@ -258,7 +257,7 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara, pa
     dT_prev = dTdtlist[-1]*dt
     dfmdT_prev = dfdtlist[-1]*dt/dT_prev
     if bool_RSS and 1:
-        while T_next > T_e:
+        while T_next > T_e and timelist[-1] < t_sim:
             T_now = T_next
 
             #Defined from prev
@@ -292,7 +291,7 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara, pa
             Xlist.append(X_now)
             Clist.append(C_now)
             fmlist.append(f_m_now)
-            dTdtlist.append(dTdt)
+            dTdtlist.append(0)
 
             ############### Code control ################
             if f_s_now > f_m_now:
@@ -301,25 +300,94 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara, pa
             if T_now > T_L:
                 print('T_now > T_L',itt)
                 exit()
-    timelist.append(t_sim)
-    Tlist.append(T_e)
+                
+    ################# Eutectic point reached ##############
+    # Here Gibb's phase rule predicts that the binary Al-Si eutectic must proceed at constant temperature, i.e. dT/dt = 0.
+    #timelist.append(t_sim)
+    #Tlist.append(T_e)
+    FrasanSint = True #U mad brah?
+    if bool_RSS and timelist[-1] < t_sim and FrasanSint:
+        beyond = False
+        T_now = T_e
+        
+        # def get_sol_time(t_eut_t,f_eut_t,L_t,a_max_t,rhoC_t):
+        f_eut = flist[-1]
+        t_eut = get_sol_time(0,f_eut,L,a,rhoC)
+        t_f = get_sol_time(timelist[-1],f_eut,L,a,rhoC)
+        print('Duration of eutectic solidification: {} s'.format(t_eut))
+    
+        if t_f > t_sim:
+            timelist.append(t_sim)
+                #Defined from prev
+            X_now = f_s_prev/f_m_prev
+            C_now = getC_scheil(C_0,f_m_prev)
+            dfm = dfmdT_prev*dT_prev
+            f_s_now = f_s_now+dfm
+        
+            #Update from this iteration
+            f_m_now = SF_fun(T_L, T_S, T_now)
+        
+            Tlist.append(T_e)
+            dfdtlist.append(dfm/dt) #This should be fixed to the previous step
+            flist.append(f_s_now)
+            Xlist.append(X_now)
+            Clist.append(C_now)
+            fmlist.append(f_m_now)
+            dTdtlist.append(0) # def as 0
+        else:
+            beyond = True
+            timelist.append(t_f)  
+            #Defined from prev
+            X_now = f_s_prev/f_m_prev
+            C_now = getC_scheil(C_0,f_m_prev)
+            dfm = dfmdT_prev*dT_prev
+            f_s_now = f_s_now+dfm
+        
+            #Update from this iteration
+            f_m_now = SF_fun(T_L, T_S, T_now)
+        
+            Tlist.append(T_e)
+            dfdtlist.append(dfm/dt) #This should be fixed to the previous step
+            flist.append(f_s_now)
+            Xlist.append(X_now)
+            Clist.append(C_now)
+            fmlist.append(f_m_now)
+            dTdtlist.append(0) # def as 0
+    
+    ########## Beyond full solidification (i.e.) additional external cooling
+    if (beyond):
+        Tlist.append(T_e-(t_sim-t_f)*a*lambdaS/lambdaL)
+        timelist.append(t_sim)
+        dfdtlist.append(dfm/dt) #This should be fixed to the previous step
+        flist.append(f_s_now)
+        Xlist.append(X_now)
+        Clist.append(C_now)
+        fmlist.append(f_m_now)
+        dTdtlist.append(dTdt)
+    
+    
+    
+    
+    
+    ################    Plotting     ######################
+    
     SF = False #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
-    PB = [1,0,0,0,0,0,0] #PlotBool
+    PB = [1,1,1,1,1,1,1] #PlotBool
  #   PB = [1,1,1,1,1,1,1] #PlotBool
     PL = [dfdtlist,Tlist,Xlist,flist,fmlist,Clist,dTdtlist] #PlotList
-    PN = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L', 'dTdt']   #PlotNames
+    PN = ['dfdt','Temperature evolution','Scaled volume fraction evolution', 'f_s', 'Evolution of maximum theoretical volume fraction', 'C_L', 'dTdt']   #PlotNames
     PY = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L', 'dTdt']
     PX = 't [s]'
-    print('\n\n\n\nLength of vectors\n:')
+    print('\n\n\n\nLength of vectors:\n')
     print('Timelist:')
     print(np.size(timelist))
-    print('Dfdtlist:')
+    print('dfdtlist:')
     print(np.size(dfdtlist))
     if testPara:
-        plt.plot(timelist, PL[6], label = paraName)
-        plt.title(PN[6])
+        plt.plot(timelist, PL[1], label = paraName)
+        plt.title(PN[1])
         plt.xlabel(PX)
-        plt.ylabel(PY[6])
+        plt.ylabel(PY[1])
         return 0 
     if SF:
         firstname = True
@@ -370,7 +438,7 @@ def main(argv):
             print('Started running using standard input parameters and n={}\n'.format(n))
             solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], n, loi[8], True, "n="+str(n))
     else:
-        solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8], True)
+        solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8], False)
     plt.legend()
     plt.show()
     
