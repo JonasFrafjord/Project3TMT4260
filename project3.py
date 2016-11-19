@@ -24,9 +24,14 @@ from matplotlib import pyplot as plt
     #listOfInput is orginaised as follows: [X_c, C_0, C_0_r, T_0, t_r, Nfrac, a, n, Scheil]
     #Where Nfrac is Nr/N
     #Both C_0 and N_frac might be list, but not at the same time. Then write [C_0_0, C_0_1, C_0_2...] in stead of one number. Will then only plot the temperature evolution
-#listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, 3, True]
-#listOfInput = [0.05, [2.0,4.0,5.5, 7.0,6.0,7.6], 4.0, 670, 6, 1, 1, 3, True]
-listOfInput = [0.05, 2.0, 4.0, 670, 6, [0.01,0.1,0.2,0.5,0.8,1,2,3,4,5,10], 1, 3, True]
+
+# Change of input parameters keeping all but one fixed:
+listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, 3, True]                                    # <--- Standard input parameters
+#listOfInput = [0.05, [2.0,4.0,5.5, 7.0,6.0,7.6], 4.0, 670, 6, 1, 1, 3, True]             # <--- Variation of the C_0/C_0_r ratio
+#listOfInput = [0.05, 2.0, 4.0, 670, 6, [0.01,0.1,0.2,0.5,0.8,1,2,3,4,5,10], 1, 3, True]  # <--- Variation of the N_r/N ratio
+#listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, [0.05,0.1,0.5,1], 3, True]                     # <--- Variation of the external cooling rate a = L/(rho*c) <--- Low rates
+#listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, [5,10,25,50], 3, True]                         # <--- Variation of the external cooling rate a = L/(rho*c) <--- High rates
+#listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, [1,2,3], True]                              # <--- Variation of the time exponent n in the JMA-eq.
 
 
 #Global variables:
@@ -40,7 +45,8 @@ C_e = 12.2              #Eutectic composition, wt% Si
 k_pc = C_s/C_e          #Partitioning coefficient defined to be C_sol/C_liq, is constant due to linearised phase diagram
 m_upper = (T_m-T_e)/C_e #rate of linear line sol-liq
 m_lower = (T_m-T_e)/C_s #rate of linear line sol-sol
-L = 1.0746				#Latent heat [J/mm^3]
+#L = 1.0746				#Latent heat [J/mm^3]
+L = 0.8                #Latent heat [J/mm^3]
 rho = 2.7e-3           #Density[g/mm^3]
 C_hc = 24.20            #Heat capacity [J/mol]
 M_mAl = 26.98          #[g/mol] Molar mass Aluminium
@@ -109,15 +115,15 @@ def SF_eutectic(C_0_t):
 ###################### Volume fraction ##########################
 	
 #Volume fraction as a function of a referance volume fraction and time, X_c and t_s respectively, time t and the integer n.
-def XVF(X_c_t, n, t_t, t_s_t):
-    return 1-(1-X_c_t)**((t_t/t_s_t)**n)
+def XVF(X_c_t, n_t, t_t, t_s_t):
+    return 1-(1-X_c_t)**((t_t/t_s_t)**n_t)
 #Differentiate numerically XVF as a function of time, by 1st order finite difference method.
 def dXVFdt(X_c_plus_t, X_c_minus_t, dt_t):
     return (X_c_plus_t-X_c_minus_t)/(2*dt_t)
 #An analytic solution for dXVF/dt
-def dXVFdt_anal(X_t,X_c_t,n,t_s_t):
+def dXVFdt_anal(X_t,X_c_t,n_t,t_s_t):
     if X_t==0: return 0
-    return -(1-X_t)*math.log(1-X_t)*n/(t_s_t*(math.log(1-X_t)/math.log(1-X_c_t))**(1/n))
+    return -(1-X_t)*math.log(1-X_t)*n_t/(t_s_t*(math.log(1-X_t)/math.log(1-X_c_t))**(1/n_t))
 #Precursor to differential form of MoleFraction
 #Kick-off equation
 def dXVFdt_precursor(n_t, t_s_t, X_c_t):
@@ -135,7 +141,7 @@ def dT_next(dotQ_temp,rhoC_temp,L_temp,dfdT_Scheil_temp,dt_temp,T_prev_temp):
 def dT_next_steady_state(a_t,dfdT_Scheil_t):
     return a_t*lambdaS/lambdaL*(L/rhoC*dfdT_Scheil_t-1)**(-1)
 
-def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara, paraName=0):
+def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara, paraName='Test'):
     if Scheil:
         SF_fun = SF_Scheil
         SF_fun_dT = SF_Scheil_dT
@@ -195,17 +201,17 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara, pa
     itt = 0
     bool_RSS = False #Reached steady state?
 
-################ Starting itterations ###############
+################ Starting iterations ###############
     for i in range(1,Nt):
-        #Update from last itteration
+        #Update from last iteration
         T_now = T_next      # T_now is for time j, while T_next is (j+1)
         
-        #The following variables are defined from prev time itteration
+        #The following variables are defined from prev time iteration
         f_s_now = f_s_now+f_m_prev*dXdt_prev*dt
         X_now = X_now + dXdt_prev*dt
         C_now = getC_scheil(C_0, f_m_prev)
         
-        #These are defined from this time itteration
+        #These are defined from this time iteration
         DT_now  = T_L-T_now
         f_m_now = SF_fun(T_L, T_S, T_now)
         t_s_now = get_t_star(t_r, DT_r, DT_now, C_0, C_0_r, N_frac, f_m_now, f_m_r, n)
@@ -261,7 +267,7 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara, pa
             dfm = dfmdT_prev*dT_prev
             f_s_now = f_s_now+dfm
 
-            #Update from this itteration
+            #Update from this iteration
             f_m_now = SF_fun(T_L, T_S, T_now)
             dfmdT = SF_fun_dT(T_L, T_S, T_now)
             dTdt = dT_next_steady_state(a, dfmdT)
@@ -297,18 +303,23 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara, pa
                 exit()
     timelist.append(t_sim)
     Tlist.append(T_e)
-    SF = 0 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
-    PB = [1,1,0,0,0,0,0] #PlotBool
+    SF = False #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
+    PB = [1,0,0,0,0,0,0] #PlotBool
  #   PB = [1,1,1,1,1,1,1] #PlotBool
     PL = [dfdtlist,Tlist,Xlist,flist,fmlist,Clist,dTdtlist] #PlotList
-    PN = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L', 'dTdt'] #PlotNames
+    PN = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L', 'dTdt']   #PlotNames
     PY = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L', 'dTdt']
     PX = 't [s]'
+    print('\n\n\n\nLength of vectors\n:')
+    print('Timelist:')
+    print(np.size(timelist))
+    print('Dfdtlist:')
+    print(np.size(dfdtlist))
     if testPara:
-        plt.plot(timelist, PL[1], label = paraName)
-        plt.title(PN[1])
-        plt.xlabel(PX[1])
-        plt.ylabel(PY[1])
+        plt.plot(timelist, PL[6], label = paraName)
+        plt.title(PN[6])
+        plt.xlabel(PX)
+        plt.ylabel(PY[6])
         return 0 
     if SF:
         firstname = True
@@ -348,8 +359,18 @@ def main(argv):
         for N_frac_ in loi[5]:
             print('Started running using standard input parameters and N_frac={}\n'.format(N_frac_))
             solidification(loi[0], loi[1], loi[2], loi[3], loi[4], N_frac_, loi[6], loi[7], loi[8], True, "N_frac="+str(N_frac_))
+    elif type(loi[6]) == type([]):
+        plt.figure()
+        for a in loi[6]:
+            print('Started running using standard input parameters and a={}\n'.format(a))
+            solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], a, loi[7], loi[8], True, "a="+str(a))
+    elif type(loi[7]) == type([]):
+        plt.figure()
+        for n in loi[7]:
+            print('Started running using standard input parameters and n={}\n'.format(n))
+            solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], n, loi[8], True, "n="+str(n))
     else:
-        solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8], False)
+        solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8], True)
     plt.legend()
     plt.show()
     
