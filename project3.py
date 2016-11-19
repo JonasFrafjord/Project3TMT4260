@@ -23,7 +23,7 @@ from matplotlib import pyplot as plt
 #List of input parameters, will be initiated in the main function.
     #listOfInput is orginaised as follows: [X_c, C_0, C_0_r, T_0, t_r, Nfrac, a, n, Scheil]
     #Where Nfrac is Nr/N
-listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, 3, True]
+listOfInput = [0.05, 7.6, 4.0, 670, 6, 1, 1, 3, True]
 
 
 #Global variables:
@@ -194,7 +194,6 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil):
 
 ################ Starting itterations ###############
     for i in range(1,Nt):
-        
         #Update from last itteration
         T_now = T_next      # T_now is for time j, while T_next is (j+1)
         
@@ -294,9 +293,9 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil):
                 print('T_now > T_L',itt)
                 exit()
 
-    SF = 0 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
+    SF = 1 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
     PB = [1,1,0,0,0,0,0] #PlotBool
-    PB = [1,1,1,1,1,1,1] #PlotBool
+ #   PB = [1,1,1,1,1,1,1] #PlotBool
     PL = [dfdtlist,Tlist,Xlist,flist,fmlist,Clist,dTdtlist] #PlotList
     PN = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L', 'dTdt'] #PlotNames
     PY = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L', 'dTdt']
