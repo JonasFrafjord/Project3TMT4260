@@ -21,8 +21,9 @@ from matplotlib import pyplot as plt
 	#The reference temperature is chosen to be 2 degrees below the melting temperature, i.e. T_L-2.0
 
 #List of input parameters, will be initiated in the main function.
-#Order of ...
-listOfInput = [0.05, 2.0, 4.0]
+    #listOfInput is orginaised as follows: [X_c, C_0, C_0_r, T_0, t_r, Nfrac, a, n, Scheil]
+    #Where Nfrac is Nr/N
+listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, 3, True]
 
 
 #Global variables:
@@ -71,8 +72,8 @@ def getT_r(T_L_t):
 	return T_L_t - 2.0
 #Time constant t_star (Applying the Hunt model, i.e. growth rate V prop. to undercooling^2/C_0
 #NB: Define all parameters (calc from chosen reference condition)
-def get_t_star(t_r_t, DT_r_t, DT_t, C_0_t, C_0_r_t, N_r_t, N_t, f_m_t, f_m_r_t, n_t):
-    return t_r_t*(DT_r_t/DT_t)**2*(C_0_t/C_0_r_t)*(N_r_t/N_t)**(1/n_t)*(f_m_t/f_m_r_t)**(1/n_t)
+def get_t_star(t_r_t, DT_r_t, DT_t, C_0_t, C_0_r_t, N_frac_t, f_m_t, f_m_r_t, n_t):
+    return t_r_t*(DT_r_t/DT_t)**2*(C_0_t/C_0_r_t)*(N_frac_t)**(1/n_t)*(f_m_t/f_m_r_t)**(1/n_t)
  
 
 ######################## Solid weight fraction below #################
@@ -82,20 +83,20 @@ def SF_Equi(T_L_t, T_S_t, T_t):
     if T_t<T_S_t: return 1 #All is solid, do not distinguish between diferent solid phases
     return 1/(1-k_pc)*(T_L_t-T_t)/(T_m-T_t)
 #The solid weight fraction differentiated with respect to temperature
-def SF_Equi_dt(T_L_t, T_S_t, T_t):
+def SF_Equi_dT(T_L_t, T_S_t, T_t):
     if T_t>T_L_t: return 0 #No solid has been formed at this temperature
     if T_t<T_S_t: return 0 #All is solid, do not distinguish between diferent solid phases
     return 1/(k_pc-1)*(T_m-T_L_t)/(T_m-T_t)**2
 
 #The solid weight fraction using the Scheil model. Non-equilibrium solidification.
-def SF_scheil(T_L_t, T_S_t, T_t):
+def SF_Scheil(T_L_t, T_S_t, T_t):
     if T_L_t <= T_t:return 0
     if T_m < T_L_t:print('Error: T_L > T_melt'), exit()
     if (1-((T_m-T_t)/(T_m-T_L_t))**(1/(k_pc-1)))> 1:print('Error: solid fraction > 1'), exit()
     if (1-((T_m-T_t)/(T_m-T_L_t))**(1/(k_pc-1)))< 0:print('Error: negative solid fraction'), exit()
     return 1-((T_m-T_t)/(T_m-T_L_t))**(1/(k_pc-1))
 #The solid weight fraction differentiated with respect to temperature
-def SF_scheil_dT(T_L_t, T_S_t, T_t):
+def SF_Scheil_dT(T_L_t, T_S_t, T_t):
     if T_t>T_L_t: return 0 #No solid has been formed at this temperature
     if T_m == T_L_t: return 1
     return (1/(k_pc-1))*(1/(T_m-T_L_t))*((T_m-T_t)/(T_m-T_L_t))**((2-k_pc)/(k_pc-1))
@@ -131,12 +132,21 @@ def dT_next(dotQ_temp,rhoC_temp,L_temp,dfdT_Scheil_temp,dt_temp,T_prev_temp):
 def dT_next_steady_state(a_t,dfdT_Scheil_t):
     return a_t*lambdaS/lambdaL*(L/rhoC*dfdT_Scheil_t-1)**(-1)
 
-def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n=3):
+def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil):
+    if Scheil:
+        SF_fun = SF_Scheil
+        SF_fun_dT = SF_Scheil_dT
+    else:
+        SF_fun = SF_Equi
+        SF_fun_dT = SF_Equi_dT
+ 
+############## Kickoff and initiation of itterations ##############
+
     #Must calculate variables which depend on reference parameters
     T_L_r = getT_L(C_0_r)
     T_S_r = getT_S(C_0_r) #This is used as a control in the solid weight fraction function (Scheil/Equilibrium)
     T_r = getT_r(T_L_r)
-    f_m_r = SF_scheil(T_L_r, T_S_r, T_r)
+    f_m_r = SF_fun(T_L_r, T_S_r, T_r)
     DT_r = T_L_r-T_r #Undercooling, is equal to 2 degrees
     
     #Constants of our system. From chosen initial values
@@ -151,19 +161,13 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
     #kickoff i = 0
     T_now = T_n
     t_0 = (T_0-T_n)/a
-    f_m_0 = SF_scheil(T_L, T_S, T_now)
- #   print((f_m_0/(2*f_m_r))**(1/3)), exit()
- #   print(f_m_now, 'f_m')
-    t_s_0 = get_t_star(t_r, DT_r, DT_0, C_0, C_0_r, N_r, N, f_m_0, f_m_r, n)
-    X_now = 0
-    dXdt_ko = dXVFdt_precursor(n, t_s_0, X_c)
-    dXdt_now = dXdt_ko
+    f_m_0 = SF_fun(T_L, T_S, T_now)
+    t_s_0 = get_t_star(t_r, DT_r, DT_0, C_0, C_0_r, N_frac, f_m_0, f_m_r, n)
+    dXdt_now = dXVFdt_precursor(n, t_s_0, X_c)
     
     #Next temp (use variables for this time, i.e. t_0. No nucleation. i=0
     C_now = C_0
-    T_L_now = getT_L(C_now)
-    T_S_now = getT_S(C_now)
-    f_m_now = SF_scheil(T_L_now, T_S_now, T_now)
+    f_m_now = SF_fun(T_L, T_S, T_now)
     T_next = T_now-dt*a+dt*L/rhoC*f_m_now*dXdt_now #i=1, from i=0 values
 
     #All X related should be determined from last step, we need prev values
@@ -182,7 +186,8 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
     fmlist = [f_m_now, f_m_now]
     dTdtlist = [-a,-a]
 
-    X_now = 0 #initiate
+    #Initiate
+    X_now = 0
     f_s_now = 0
     itt = 0
     bool_RSS = False #Reached steady state?
@@ -200,8 +205,8 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
         
         #These are defined from this time itteration
         DT_now  = T_L-T_now
-        f_m_now = SF_scheil(T_L, T_S, T_now)
-        t_s_now = get_t_star(t_r, DT_r, DT_now, C_0, C_0_r, N_r, N, f_m_now, f_m_r, n)
+        f_m_now = SF_fun(T_L, T_S, T_now)
+        t_s_now = get_t_star(t_r, DT_r, DT_now, C_0, C_0_r, N_frac, f_m_now, f_m_r, n)
         dXdt_now = dXVFdt_anal(X_now, X_c, n, t_s_now)
         T_next = T_now-dt*a+dt*L/rhoC*f_m_now*dXdt_now
 
@@ -221,7 +226,7 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
         fmlist.append(f_m_now)
         dTdtlist.append((-a+L/rhoC*f_m_now*dXdt_now))
         
-        #Code control
+        ########## Code control ###########33
         if T_now < T_e or T_now > T_L:
             print('Temperature is crazy')
             print(T_L, T_e, T_now, 'T_L, T_e and T at i=',i)
@@ -240,43 +245,62 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
         if T_now < T_e:
             print(i)
             break
+
+    ################# Time for steady state evolution of our system ##############
+    dT_prev = dTdtlist[-1]*dt
+    dfmdT_prev = dfdtlist[-1]*dt/dT_prev
     if bool_RSS and 1:
-        while T_now > T_e:
-            C_now = getC_scheil(C_0,f_m_now)#C_0*(1-f_m_now)**(k_pc-1)
-            f_m_now = SF_scheil(T_L, T_S, T_now)
-            dfdT = SF_scheil_dT(T_L, T_S, T_now)
-            dTdt = dT_next_steady_state(a, dfdT)
-            dT = dTdt*dt
-            df = dfdT*dTdt*dt
-            f_s_now = f_s_now+df
-            T_now = T_now + dT
-            X_now = f_s_now/f_m_now
+        while T_next > T_e:
+            T_now = T_next
+
+            #Defined from prev
+            X_now = f_s_prev/f_m_prev
+            C_now = getC_scheil(C_0,f_m_prev)
+            dfm = dfmdT_prev*dT_prev
+            f_s_now = f_s_now+dfm
+
+            #Update from this itteration
+            f_m_now = SF_fun(T_L, T_S, T_now)
+            dfmdT = SF_fun_dT(T_L, T_S, T_now)
+            dTdt = dT_next_steady_state(a, dfmdT)
+            dT_now = dTdt*dt
+            T_next = T_now + dT_now
+            
+            #Update variables
+            T_prev = T_now
+            f_m_prev = f_m_now
+            f_s_prev = f_s_now
+            dT_prev = dT_now
+            dfmdT_prev = dfmdT
+
+            #Keep track of time
             itt = itt+1
+
+
             Tlist.append(T_now)
             timelist.append(t_0+itt*dt)
-            dfdtlist.append(df/dt) #This should be fixed to the previous step
+            dfdtlist.append(dfm/dt) #This should be fixed to the previous step
             flist.append(f_s_now)
             Xlist.append(X_now)
             Clist.append(C_now)
             fmlist.append(f_m_now)
             dTdtlist.append(dTdt)
-            if dfdtlist[-2]/dfdtlist[-1] < 1.5 and False:
-                print('dfdt is not continous at all', itt)
-                exit()
+
+            ############### Code control ################
             if f_s_now > f_m_now:
                 print(itt, 'f_s > f_m')
                 break
-            if T_now > T_L_now:
-                print('dammit',itt)
+            if T_now > T_L:
+                print('T_now > T_L',itt)
                 exit()
-            if itt*dt > t_sim:
-                print('Never reached T_e')
-                break
+
+    SF = 0 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
     PB = [1,1,0,0,0,0,0] #PlotBool
     PB = [1,1,1,1,1,1,1] #PlotBool
     PL = [dfdtlist,Tlist,Xlist,flist,fmlist,Clist,dTdtlist] #PlotList
-    PN = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L','dTdt'] #PlotNames
-    SF = 0 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
+    PN = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L', 'dTdt'] #PlotNames
+    PY = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L', 'dTdt']
+    PX = 't [s]'
     if SF:
         firstname = True
         for PB_t,PN_t in zip(PB,PN):
@@ -286,52 +310,26 @@ def solidification(X_c, C_0, C_0_r, T_0 = 670, t_r=6, N=1000, N_r=1000, a=1.0, n
                 firstname = False
             elif PB_t:
                 exec(PN_t+"="+origin+".twinx()")
-    for PB_t, PL_t, PN_t in zip(PB,PL,PN):
+    for PB_t, PL_t, PN_t, PY_t in zip(PB,PL,PN, PY):
         if PB_t:
             if SF:
                 exec(PN_t+".plot(timelist,PL_t)")
+                exec(PN_t+".set_ylabel(PY_t)")
+                exec(PN_t+".set_xlabel(PX)")
             else:
                 plt.figure()
                 plt.plot(timelist,PL_t)
                 plt.title(PN_t)
-                
-    
-    plt.show()
-
-#################### Better solution above
-    exit()
-
-    
-    ##################################
-    #plotting
-    plt.figure(figsize=(6,6), dpi=120)
-    plt.plot(t_plot,T,'r')
-    plt.xlabel('t [s]')
-    plt.ylabel(r'Temperature [$^{\circ}$C]')
-    plt.title('Plot Temp')
-    
-    plt.figure(figsize=(6,6), dpi=120)
-    plt.plot(t_plot,X,'b')
-    plt.xlabel('t [s]')
-    plt.ylabel(r'X')
-    plt.title('Scaled volume fraction, X')
-
-    plt.figure(figsize=(6,6), dpi=120)
-    plt.plot(t_plot,f_s,'k')
-    plt.xlabel('t [s]')
-    plt.ylabel(r'f$_{s}$')
-    plt.title(r'Volume fraction $\alpha$-phase, f$_{s}$')
-    
-    plt.figure(figsize=(6,6), dpi=120)
-    plt.plot(iteration,t_st,'g')
-    plt.xlabel('#')
-    plt.ylabel(r't$_{star}$')
-    plt.title('t$_{star}$ after each iteration')
-    
-            
+                plt.xlabel(PX)
+                plt.ylabel(PY_t)
 def main(argv):
-    print('Program started')
-    solidification(0.05, 2.0, 4.0)
+    loi = listOfInput
+    if loi[-1]:
+        func = "Scheil method"
+    else:
+        func = "Lever-rule method"
+    print('Program started. Using the ', func)
+    solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8])
     plt.show()
     
 #Only run if this is a main file, and not a module
