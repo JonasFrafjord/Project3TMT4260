@@ -26,10 +26,10 @@ from matplotlib import pyplot as plt
     #Both C_0 and N_frac might be list, but not at the same time. Then write [C_0_0, C_0_1, C_0_2...] in stead of one number. Will then only plot the temperature evolution
 
 # Change of input parameters keeping all but one fixed:
-#listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, 1, True]                                    # <--- Standard input parameters
+listOfInput = [0.05, 1.1, 4.0, 670, 6, 1, 1, 3, False]#True]#False]                                    # <--- Standard input parameters
 #listOfInput = [0.05, [2.0,3.2,4.8,6.0,7.2], 4.0, 670, 6, 1, 1, 3, True]                  # <--- Variation of the C_0/C_0_r ratio
 #listOfInput = [0.05, 2.0, 4.0, 670, 6, [0.01,0.1,1,2,4,6,8,10,14], 1, 3, True]           # <--- Variation of the N_r/N ratio
-listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, [0.8,1,1.2,1.3,1.4], 3, True]                  # <--- Variation of the external cooling rate a = L/(rho*c) <--- Low rates
+#listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, [0.8,1,1.2,1.3,1.4], 3, True]                  # <--- Variation of the external cooling rate a = L/(rho*c) <--- Low rates
 #listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, [1,2,3], True]                              # <--- Variation of the time exponent n in the JMA-eq.
 
 #PL = [dfdtlist0,Tlist1,Xlist2,flist3,fmlist4,Clist5,dTdtlist6] #PlotList
@@ -62,7 +62,8 @@ lambdaS = 0.213			#Thermal conductivity solid Al [W/(Celcius*mm)] @ 630 degrees 
 t_sim = 250.0					#6 seconds simulation
 dt = 0.01
 Nt = math.ceil(t_sim/dt)
-NiS = round(50/dt)
+NiS = round(20/dt)
+
 
 ##################### All getStuff is defined here ##############
 #The temperature associated to a given concentration C_0. Not a free variable, but given by sol-liq-line.
@@ -77,8 +78,10 @@ def getT_S(C_0_t):
 #The nucleation temperature. We may delete this function and the next one, at some point. If we find it redundant.
 def getT_n(T_L_t):
 	return T_L_t - 0.1
-def getC_scheil(C_0_t, f_m_t):
+def getC_Scheil(C_0_t, f_m_t):
     return C_0_t*(1-f_m_t)**(k_pc-1)
+def getC_Equi(C_0_t, f_m_t):
+    return C_0_t/(1+(1-k_pc)*f_m_t)
 #The reference temperature
 def getT_r(T_L_t):
 	return T_L_t - 2.0
@@ -95,7 +98,7 @@ def get_SF_eutectic(C_0_t):
 #The solid weight fraction at equilibrium, given by the lever rule.
 def SF_Equi(T_L_t, T_S_t, T_t):
     if T_t>T_L_t: return 0 #No solid has been formed at this temperature
-    if T_t<T_S_t: return 1 #All is solid, do not distinguish between diferent solid phases
+    if T_t<T_S_t: return False #All is solid, do not distinguish between diferent solid phases
     return 1/(1-k_pc)*(T_L_t-T_t)/(T_m-T_t)
 #The solid weight fraction differentiated with respect to temperature
 def SF_Equi_dT(T_L_t, T_S_t, T_t):
@@ -147,8 +150,7 @@ def dT_next_steady_state(a_t,dfdT_Scheil_t):
 
 #Weight function for smooth transition between transient and steady state evolution, centered around i_0. Width, alpha, is determined by numbers of points, NiS
 def WF_smooth(i_t, i_0_t):
-    alpha = NiS/8
- #   return i_t/NiS
+    alpha = NiS/16
     return(1/(1+math.exp(-(i_t-i_0_t)/alpha)))
     
 
@@ -156,9 +158,11 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
     if Scheil:
         SF_fun = SF_Scheil
         SF_fun_dT = SF_Scheil_dT
+        getC_fun = getC_Scheil
     else:
         SF_fun = SF_Equi
         SF_fun_dT = SF_Equi_dT
+        getC_fun = getC_Equi
 ############## Kickoff and initiation of itterations ##############
 
     #Must calculate variables which depend on reference parameters
@@ -222,7 +226,7 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
            X_now = X_now + dXdt_prev*dt
         else:
             X_now = f_s_prev/f_m_prev
-        C_now = getC_scheil(C_0, f_m_prev)
+        C_now = getC_fun(C_0, f_m_prev)
         
         #These are defined from this time iteration
         DT_now  = T_L-T_now
@@ -274,16 +278,16 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
     f_s_prev = flist[itt]
     f_m_prev = fmlist[itt]
     T_next = Tlist[itt]
-
+    BoolAbort = False
     if bool_RSS and 1:
         while T_next > T_e and timelist[-1] < t_sim:
-            if itt == i+1:
+            if itt == i+2:
                 DoneSmooth = True
             T_now = T_next
 
             #Defined from prev
             X_now = f_s_prev/f_m_prev
-            C_now = getC_scheil(C_0,f_m_prev)
+            C_now = getC_fun(C_0,f_m_prev)
             dfm = dfmdT_prev*dT_prev
             f_s_now = f_s_prev+dfm
                 
@@ -296,6 +300,19 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
             #Update variables
             T_prev = T_now
             f_m_prev = f_m_now
+            if not f_m_now:
+                print('Temperature is below solidus temperature in the Lever rule method. We are now in a one phase section of the phase diagram.')
+                BoolAbort = True
+                Tlist = Tlist + [Tlist[-1],Tlist[-1]-(t_sim-timelist[-1])*a*lambdaS/lambdaL]
+                timelist = timelist + [timelist[-1],t_sim]
+                dfdtlist = dfdtlist + [0,0]
+                flist = flist + [1,1]
+                Xlist = Xlist + [1,1]
+                Clist = Clist + [Clist[-1],Clist[-1]]
+                fmlist = fmlist + [1,1]
+                dTdtlist = dTdtlist + [a*lambdaS/lambdaL,a*lambdaS/lambdaL]
+
+                break
             f_s_prev = f_s_now
             dT_prev = dT_now
             dfmdT_prev = dfmdT
@@ -305,7 +322,6 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
                 WF = WF_smooth((itt-i+NiS),round(NiS/2))
                 C_now = (1-WF)*Clist[itt]+WF*C_now
                 f_m_now = (1-WF)*fmlist[itt]+WF*f_m_now
-                dfmdT = (1-WF)*dfdtlist[itt]*dt/dT_now+WF*dfmdT
                 f_s_now = (1-WF)*flist[itt]+WF*f_s_now
                 dTdt = (1-WF)*dTdtlist[itt]+WF*dTdt
                 dfm = (1-WF)*dfdtlist[itt]*dt+WF*dfm
@@ -314,8 +330,6 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
 
             
 
-            #Keep track of time
-            itt = itt+1
             if DoneSmooth:
                 Tlist.append(T_now)
                 timelist.append(t_0+itt*dt)
@@ -334,6 +348,8 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
                 Clist[itt] = C_now
                 fmlist[itt] = f_m_now
                 dTdtlist[itt] = dTdt
+            #Keep track of time
+            itt = itt+1
            
 
             ############### Code control ################
@@ -343,12 +359,11 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
             if T_now > T_L:
                 print('T_now > T_L',itt)
                 exit()
-                
     ################# Eutectic point reached ##############
     # Here Gibb's phase rule predicts that the binary Al-Si eutectic must proceed at constant temperature, i.e. dT/dt = 0.
     #timelist.append(t_sim)
     #Tlist.append(T_e)
-    if bool_RSS and timelist[-1] < t_sim:
+    if bool_RSS and timelist[-1] < t_sim and not BoolAbort:
         T_now = T_e
 
         f_eut = flist[-1]
@@ -362,7 +377,6 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
         
         Tlist = Tlist + [T_e, T_e]
         timelist = timelist + [timelist[-1], t_f]
-        
         dfdtlist = dfdtlist + [(1-flist[-1])/t_eut,(1-flist[-1])/t_eut]
         flist = flist + [flist[-1],1]
         print(flist[-1],flist[-2])
@@ -384,11 +398,11 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
 
     ################    Plotting     ######################
     
-    SF = False #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
-    PB = [1,1,1,1,1,1,1] #PlotBool
+    SF = 0 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
  #   PB = [1,1,1,1,1,1,1] #PlotBool
+    PB = [0,1,0,1,1,0,0] #PlotBool
     PL = [dfdtlist,Tlist,Xlist,flist,fmlist,Clist,dTdtlist] #PlotList
-    PN = ['Evolution of solidification rate','Temperature evolution','Scaled volume fraction evolution',\
+    PN = ['Evolution of solidificationrate','Temperature evolution','Scaled volume fraction evolution',\
     'Evolution of volume fraction formed', 'Evolution of maximum theoretical volume fraction', 'Evolution of Si wt% concentration in liquid', 'Evolution of temperature gradient']   #PlotNames
     PY = ['df/dt',r'Temperature [$^{\circ}$C]','X', r'f$_{s}$', 'f$_{m}$', r'C$_{L}$ [wt% Si]', 'dT/dt [$^{\circ}$C/s]']
     PX = 't [s]'
