@@ -26,8 +26,8 @@ from matplotlib import pyplot as plt
     #Both C_0 and N_frac might be list, but not at the same time. Then write [C_0_0, C_0_1, C_0_2...] in stead of one number. Will then only plot the temperature evolution
 
 # Change of input parameters keeping all but one fixed:
-#listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, 3, True]                                    # <--- Standard input parameters
-listOfInput = [0.05, [2.0,4.0,5.5, 7.0,6.0,7.6], 4.0, 670, 6, 1, 1, 3, True]             # <--- Variation of the C_0/C_0_r ratio
+listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, 3, True]                                    # <--- Standard input parameters
+#listOfInput = [0.05, [2.0,4.0,5.5, 7.0,6.0,7.6], 4.0, 670, 6, 1, 1, 3, True]             # <--- Variation of the C_0/C_0_r ratio
 #listOfInput = [0.05, 2.0, 4.0, 670, 6, [0.01,0.1,0.2,0.5,0.8,1,2,3,4,5,10], 1, 3, True]  # <--- Variation of the N_r/N ratio
 #listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, [0.05,0.1,0.5,1], 3, True]                     # <--- Variation of the external cooling rate a = L/(rho*c) <--- Low rates
 #listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, [5,10,25,50], 3, True]                         # <--- Variation of the external cooling rate a = L/(rho*c) <--- High rates
@@ -83,6 +83,9 @@ def getT_r(T_L_t):
 #NB: Define all parameters (calc from chosen reference condition)
 def get_t_star(t_r_t, DT_r_t, DT_t, C_0_t, C_0_r_t, N_frac_t, f_m_t, f_m_r_t, n_t):
     return t_r_t*(DT_r_t/DT_t)**2*(C_0_t/C_0_r_t)*(N_frac_t)**(1/n_t)*(f_m_t/f_m_r_t)**(1/n_t)
+    
+def get_SF_eutectic(C_0_t):
+    return C_e*math.exp(1/(k_pc-1))/C_0_t
  
 
 ######################## Solid weight fraction below #################
@@ -109,8 +112,6 @@ def SF_Scheil_dT(T_L_t, T_S_t, T_t):
     if T_t>T_L_t: return 0 #No solid has been formed at this temperature
     if T_m == T_L_t: return 1
     return (1/(k_pc-1))*(1/(T_m-T_L_t))*((T_m-T_t)/(T_m-T_L_t))**((2-k_pc)/(k_pc-1))
-def SF_eutectic(C_0_t):
-    return C_e*math.exp(1/(k_pc-1))/C_0_t
 
 ###################### Volume fraction ##########################
 	
@@ -141,7 +142,7 @@ def dT_next(dotQ_temp,rhoC_temp,L_temp,dfdT_Scheil_temp,dt_temp,T_prev_temp):
 def dT_next_steady_state(a_t,dfdT_Scheil_t):
     return a_t*lambdaS/lambdaL*(L/rhoC*dfdT_Scheil_t-1)**(-1)
 
-def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara, paraName='Test'):
+def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = False, paraName='Default'):
     if Scheil:
         SF_fun = SF_Scheil
         SF_fun_dT = SF_Scheil_dT
@@ -315,60 +316,33 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara, pa
         t_eut = get_sol_time(0,f_eut,L,a,rhoC)
         t_f = get_sol_time(timelist[-1],f_eut,L,a,rhoC)
         print('Duration of eutectic solidification: {} s'.format(t_eut))
-    
+        tfLTts = True # tfLessThants
         if t_f > t_sim:
-            timelist.append(t_sim)
-                #Defined from prev
-            X_now = f_s_prev/f_m_prev
-            C_now = getC_scheil(C_0,f_m_prev)
-            dfm = dfmdT_prev*dT_prev
-            f_s_now = f_s_now+dfm
+            tfLTts = False
+            t_f = t_sim
         
-            #Update from this iteration
-            f_m_now = SF_fun(T_L, T_S, T_now)
+        Tlist = Tlist + [T_e, T_e]
+        timelist = timelist + [timelist[-1], t_f]
         
-            Tlist.append(T_e)
-            dfdtlist.append(dfm/dt) #This should be fixed to the previous step
-            flist.append(f_s_now)
-            Xlist.append(X_now)
-            Clist.append(C_now)
-            fmlist.append(f_m_now)
-            dTdtlist.append(0) # def as 0
-        else:
-            beyond = True
-            timelist.append(t_f)  
-            #Defined from prev
-            X_now = f_s_prev/f_m_prev
-            C_now = getC_scheil(C_0,f_m_prev)
-            dfm = dfmdT_prev*dT_prev
-            f_s_now = f_s_now+dfm
+        dfdtlist = dfdtlist + [(1-flist[-1])/t_eut,(1-flist[-1])/t_eut]
+        flist = flist + [flist[-1],1]
+        print(flist[-1],flist[-2])
+        Xlist = Xlist + [Xlist[-1], Xlist[-1]]
+        Clist = Clist + [Clist[-1], Clist[-1]]
+        fmlist = fmlist + [1,1]
+        dTdtlist = dTdtlist + [0,0]
         
-            #Update from this iteration
-            f_m_now = SF_fun(T_L, T_S, T_now)
-        
-            Tlist.append(T_e)
-            dfdtlist.append(dfm/dt) #This should be fixed to the previous step
-            flist.append(f_s_now)
-            Xlist.append(X_now)
-            Clist.append(C_now)
-            fmlist.append(f_m_now)
-            dTdtlist.append(0) # def as 0
-    
-    ########## Beyond full solidification (i.e.) additional external cooling
-    if (beyond):
-        Tlist.append(T_e-(t_sim-t_f)*a*lambdaS/lambdaL)
-        timelist.append(t_sim)
-        dfdtlist.append(dfm/dt) #This should be fixed to the previous step
-        flist.append(f_s_now)
-        Xlist.append(X_now)
-        Clist.append(C_now)
-        fmlist.append(f_m_now)
-        dTdtlist.append(dTdt)
-    
-    
-    
-    
-    
+        if tfLTts:
+            Tlist = Tlist + [T_e, T_e-(t_sim-t_f)*a*lambdaS/lambdaL]
+            timelist = timelist + [t_f+dt, t_sim]
+            dfdtlist = dfdtlist + [0,0]
+            flist = flist + [1,1]
+            Xlist = Xlist + [Xlist[-1], Xlist[-1]]
+            Clist = Clist + [Clist[-1], Clist[-1]]
+            fmlist = fmlist + [1,1]
+            dTdtlist = dTdtlist + [a*lambdaS/lambdaL,a*lambdaS/lambdaL]
+            
+
     ################    Plotting     ######################
     
     SF = False #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
@@ -438,7 +412,7 @@ def main(argv):
             print('Started running using standard input parameters and n={}\n'.format(n))
             solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], n, loi[8], True, "n="+str(n))
     else:
-        solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8], False)
+        solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8])
     plt.legend()
     plt.show()
     
