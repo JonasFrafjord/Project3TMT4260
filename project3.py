@@ -60,6 +60,7 @@ lambdaS = 0.213			#Thermal conductivity solid Al [W/(Celcius*mm)] @ 630 degrees 
 t_sim = 250.0					#6 seconds simulation
 dt = 0.01
 Nt = math.ceil(t_sim/dt)
+NiS = round(50/dt)
 
 ##################### All getStuff is defined here ##############
 #The temperature associated to a given concentration C_0. Not a free variable, but given by sol-liq-line.
@@ -142,6 +143,13 @@ def dT_next(dotQ_temp,rhoC_temp,L_temp,dfdT_Scheil_temp,dt_temp,T_prev_temp):
 def dT_next_steady_state(a_t,dfdT_Scheil_t):
     return a_t*lambdaS/lambdaL*(L/rhoC*dfdT_Scheil_t-1)**(-1)
 
+#Weight function for smooth transition between transient and steady state evolution, centered around i_0. Width, alpha, is determined by numbers of points, NiS
+def WF_smooth(i_t, i_0_t):
+    alpha = NiS/8
+ #   return i_t/NiS
+    return(1/(1+math.exp(-(i_t-i_0_t)/alpha)))
+    
+
 def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = False, paraName='Default'):
     if Scheil:
         SF_fun = SF_Scheil
@@ -149,7 +157,6 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
     else:
         SF_fun = SF_Equi
         SF_fun_dT = SF_Equi_dT
- 
 ############## Kickoff and initiation of itterations ##############
 
     #Must calculate variables which depend on reference parameters
@@ -199,7 +206,7 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
     #Initiate
     X_now = 0
     f_s_now = 0
-    itt = 0
+    itt = round(t_sim/dt)
     bool_RSS = False #Reached steady state?
 
 ################ Starting iterations ###############
@@ -209,7 +216,10 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
         
         #The following variables are defined from prev time iteration
         f_s_now = f_s_now+f_m_prev*dXdt_prev*dt
-        X_now = X_now + dXdt_prev*dt
+        if i == 1:      #since f_s_prev=0. Need to use kick off
+           X_now = X_now + dXdt_prev*dt
+        else:
+            X_now = f_s_prev/f_m_prev
         C_now = getC_scheil(C_0, f_m_prev)
         
         #These are defined from this time iteration
@@ -234,7 +244,7 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
         fmlist.append(f_m_now)
         dTdtlist.append((-a+L/rhoC*f_m_now*dXdt_now))
         
-        ########## Code control ###########33
+        ########## Code control ###########
         if T_now < T_e or T_now > T_L:
             print('Temperature is crazy')
             print(T_L, T_e, T_now, 'T_L, T_e and T at i=',i)
@@ -244,55 +254,85 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
             print(i,'Transient, f_s>f_m')
             exit()
             break
-        if X_now > 1-5e-2:
+        if X_now > 1-1e-1 and not bool_RSS:
             bool_RSS = True
             itt = i
             print(t_0+i*dt,'Done with Transient, at i={}'.format(i),T_now)
             print(f_m_now, f_s_now, f_s_now/f_m_now)
-            break
         if T_now < T_e:
             print(i)
             break
+        if bool_RSS and i-itt > NiS: #NiS times into steady state with transient, we smooth
+            break
 
     ################# Time for steady state evolution of our system ##############
-    dT_prev = dTdtlist[-1]*dt
-    dfmdT_prev = dfdtlist[-1]*dt/dT_prev
+    DoneSmooth = False
+    dT_prev = dTdtlist[itt]*dt
+    dfmdT_prev = dfdtlist[itt]*dt/dT_prev
+    f_s_prev = flist[itt]
+    f_m_prev = fmlist[itt]
+    T_next = Tlist[itt]
+
     if bool_RSS and 1:
         while T_next > T_e and timelist[-1] < t_sim:
+            if itt == i+1:
+                DoneSmooth = True
             T_now = T_next
 
             #Defined from prev
             X_now = f_s_prev/f_m_prev
             C_now = getC_scheil(C_0,f_m_prev)
             dfm = dfmdT_prev*dT_prev
-            f_s_now = f_s_now+dfm
-
+            f_s_now = f_s_prev+dfm
+                
             #Update from this iteration
             f_m_now = SF_fun(T_L, T_S, T_now)
             dfmdT = SF_fun_dT(T_L, T_S, T_now)
             dTdt = dT_next_steady_state(a, dfmdT)
             dT_now = dTdt*dt
-            T_next = T_now + dT_now
-            
+
             #Update variables
             T_prev = T_now
             f_m_prev = f_m_now
             f_s_prev = f_s_now
             dT_prev = dT_now
             dfmdT_prev = dfmdT
+            T_next = T_now + dT_now
+
+            if not DoneSmooth:
+                WF = WF_smooth((itt-i+NiS),round(NiS/2))
+                C_now = (1-WF)*Clist[itt]+WF*C_now
+                f_m_now = (1-WF)*fmlist[itt]+WF*f_m_now
+                dfmdT = (1-WF)*dfdtlist[itt]*dt/dT_now+WF*dfmdT
+                f_s_now = (1-WF)*flist[itt]+WF*f_s_now
+                dTdt = (1-WF)*dTdtlist[itt]+WF*dTdt
+                dfm = (1-WF)*dfdtlist[itt]*dt+WF*dfm
+                T_now = (1-WF)*Tlist[itt] + WF*T_next
+            #    print(i,itt, dTdt,dTdtlist[itt], WF)
+
+            
 
             #Keep track of time
             itt = itt+1
-
-
-            Tlist.append(T_now)
-            timelist.append(t_0+itt*dt)
-            dfdtlist.append(dfm/dt) #This should be fixed to the previous step
-            flist.append(f_s_now)
-            Xlist.append(X_now)
-            Clist.append(C_now)
-            fmlist.append(f_m_now)
-            dTdtlist.append(0)
+            if DoneSmooth:
+                Tlist.append(T_now)
+                timelist.append(t_0+itt*dt)
+                dfdtlist.append(dfm/dt) #This should be fixed to the previous step
+                flist.append(f_s_now)
+                Xlist.append(X_now)
+                Clist.append(C_now)
+                fmlist.append(f_m_now)
+                dTdtlist.append(dTdt)
+            else:
+                Tlist[itt] = T_now
+                timelist[itt] = t_0+itt*dt
+                dfdtlist[itt] = dfm/dt #This should be fixed to the previous step
+                flist[itt] = f_s_now
+                Xlist[itt] = X_now
+                Clist[itt] = C_now
+                fmlist[itt] = f_m_now
+                dTdtlist[itt] = dTdt
+           
 
             ############### Code control ################
             if f_s_now > f_m_now:
