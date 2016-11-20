@@ -26,12 +26,14 @@ from matplotlib import pyplot as plt
     #Both C_0 and N_frac might be list, but not at the same time. Then write [C_0_0, C_0_1, C_0_2...] in stead of one number. Will then only plot the temperature evolution
 
 # Change of input parameters keeping all but one fixed:
-listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, 3, True]                                    # <--- Standard input parameters
-#listOfInput = [0.05, [2.0,4.0,5.5, 7.0,6.0,7.6], 4.0, 670, 6, 1, 1, 3, True]             # <--- Variation of the C_0/C_0_r ratio
-#listOfInput = [0.05, 2.0, 4.0, 670, 6, [0.01,0.1,0.2,0.5,0.8,1,2,3,4,5,10], 1, 3, True]  # <--- Variation of the N_r/N ratio
-#listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, [0.05,0.1,0.5,1], 3, True]                     # <--- Variation of the external cooling rate a = L/(rho*c) <--- Low rates
-#listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, [5,10,25,50], 3, True]                         # <--- Variation of the external cooling rate a = L/(rho*c) <--- High rates
+#listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, 1, True]                                    # <--- Standard input parameters
+#listOfInput = [0.05, [2.0,3.2,4.8,6.0,7.2], 4.0, 670, 6, 1, 1, 3, True]                  # <--- Variation of the C_0/C_0_r ratio
+#listOfInput = [0.05, 2.0, 4.0, 670, 6, [0.01,0.1,1,2,4,6,8,10,14], 1, 3, True]           # <--- Variation of the N_r/N ratio
+listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, [0.8,1,1.2,1.3,1.4], 3, True]                  # <--- Variation of the external cooling rate a = L/(rho*c) <--- Low rates
 #listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, [1,2,3], True]                              # <--- Variation of the time exponent n in the JMA-eq.
+
+#PL = [dfdtlist0,Tlist1,Xlist2,flist3,fmlist4,Clist5,dTdtlist6] #PlotList
+PI_glob = 1
 
 
 #Global variables:
@@ -150,7 +152,7 @@ def WF_smooth(i_t, i_0_t):
     return(1/(1+math.exp(-(i_t-i_0_t)/alpha)))
     
 
-def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = False, paraName='Default'):
+def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = False, paraName='Default', PI = 1):
     if Scheil:
         SF_fun = SF_Scheil
         SF_fun_dT = SF_Scheil_dT
@@ -346,17 +348,14 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
     # Here Gibb's phase rule predicts that the binary Al-Si eutectic must proceed at constant temperature, i.e. dT/dt = 0.
     #timelist.append(t_sim)
     #Tlist.append(T_e)
-    FrasanSint = True #U mad brah?
-    if bool_RSS and timelist[-1] < t_sim and FrasanSint:
-        beyond = False
+    if bool_RSS and timelist[-1] < t_sim:
         T_now = T_e
-        
-        # def get_sol_time(t_eut_t,f_eut_t,L_t,a_max_t,rhoC_t):
+
         f_eut = flist[-1]
         t_eut = get_sol_time(0,f_eut,L,a,rhoC)
         t_f = get_sol_time(timelist[-1],f_eut,L,a,rhoC)
         print('Duration of eutectic solidification: {} s'.format(t_eut))
-        tfLTts = True # tfLessThants
+        tfLTts = True # t_f Less Than t_sim
         if t_f > t_sim:
             tfLTts = False
             t_f = t_sim
@@ -389,8 +388,9 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
     PB = [1,1,1,1,1,1,1] #PlotBool
  #   PB = [1,1,1,1,1,1,1] #PlotBool
     PL = [dfdtlist,Tlist,Xlist,flist,fmlist,Clist,dTdtlist] #PlotList
-    PN = ['dfdt','Temperature evolution','Scaled volume fraction evolution', 'f_s', 'Evolution of maximum theoretical volume fraction', 'C_L', 'dTdt']   #PlotNames
-    PY = ['dfdt','Temp','X', 'f_s', 'f_m', 'C_L', 'dTdt']
+    PN = ['Evolution of solidification rate','Temperature evolution','Scaled volume fraction evolution',\
+    'Evolution of volume fraction formed', 'Evolution of maximum theoretical volume fraction', 'Evolution of Si wt% concentration in liquid', 'Evolution of temperature gradient']   #PlotNames
+    PY = ['df/dt',r'Temperature [$^{\circ}$C]','X', r'f$_{s}$', 'f$_{m}$', r'C$_{L}$ [wt% Si]', 'dT/dt [$^{\circ}$C/s]']
     PX = 't [s]'
     print('\n\n\n\nLength of vectors:\n')
     print('Timelist:')
@@ -398,10 +398,12 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
     print('dfdtlist:')
     print(np.size(dfdtlist))
     if testPara:
-        plt.plot(timelist, PL[1], label = paraName)
-        plt.title(PN[1])
+        plt.plot(timelist, PL[PI], label = paraName)
+        plt.title(PN[PI],fontsize= 30,y=1.04)
         plt.xlabel(PX)
-        plt.ylabel(PY[1])
+        plt.ylabel(PY[PI])
+        params = {'font.size': 28, 'legend.fontsize': 24,'lines.linewidth': 3.0}
+        plt.rcParams.update(params)
         return 0 
     if SF:
         firstname = True
@@ -421,11 +423,13 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
             else:
                 plt.figure()
                 plt.plot(timelist,PL_t)
-                plt.title(PN_t)
+                plt.title(PN_t,fontsize= 16,y=1.04)
                 plt.xlabel(PX)
                 plt.ylabel(PY_t)
+                plt.rcParams.update({'font.size': 16})
 def main(argv):
     #listOfInput is orginaised as follows: [X_c, C_0, C_0_r, T_0, t_r, Nfrac, a, n, Scheil]
+    #PL = [dfdtlist,Tlist,Xlist,flist,fmlist,Clist,dTdtlist] #PlotList
     loi = listOfInput
     if loi[-1]:
         func = "Scheil method"
@@ -435,25 +439,26 @@ def main(argv):
     if type(loi[1]) == type([]):
         plt.figure()
         for C_0_ in loi[1]:
-            solidification(loi[0], C_0_, loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8], True, "C0="+str(C_0_))
+            solidification(loi[0], C_0_, loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8], True, r"C$_{0}$="+str(C_0_),PI_glob)
     elif type(loi[5]) == type([]):
         plt.figure()
         for N_frac_ in loi[5]:
             print('Started running using standard input parameters and N_frac={}\n'.format(N_frac_))
-            solidification(loi[0], loi[1], loi[2], loi[3], loi[4], N_frac_, loi[6], loi[7], loi[8], True, "N_frac="+str(N_frac_))
+            solidification(loi[0], loi[1], loi[2], loi[3], loi[4], N_frac_, loi[6], loi[7], loi[8], True, r"N$_{r}$/N="+str(N_frac_),PI_glob)
     elif type(loi[6]) == type([]):
         plt.figure()
         for a in loi[6]:
             print('Started running using standard input parameters and a={}\n'.format(a))
-            solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], a, loi[7], loi[8], True, "a="+str(a))
+            solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], a, loi[7], loi[8], True, "a="+str(a),PI_glob)
     elif type(loi[7]) == type([]):
         plt.figure()
         for n in loi[7]:
             print('Started running using standard input parameters and n={}\n'.format(n))
-            solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], n, loi[8], True, "n="+str(n))
+            solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], n, loi[8], True, "n="+str(n),PI_glob)
     else:
         solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8])
-    plt.legend()
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    #plt.legend()
     plt.show()
     
 #Only run if this is a main file, and not a module
