@@ -26,9 +26,10 @@ from matplotlib import pyplot as plt
     #Both C_0 and N_frac might be list, but not at the same time. Then write [C_0_0, C_0_1, C_0_2...] in stead of one number. Will then only plot the temperature evolution
 
 # Change of input parameters keeping all but one fixed:
-listOfInput = [0.05, 1.1, 4.0, 670, 6, 1, 1, 3, False]#True]#False]                                    # <--- Standard input parameters
-#listOfInput = [0.05, [2.0,3.2,4.8,6.0,7.2], 4.0, 670, 6, 1, 1, 3, True]                  # <--- Variation of the C_0/C_0_r ratio
-#listOfInput = [0.05, 2.0, 4.0, 670, 6, [0.01,0.1,1,2,4,6,8,10,14], 1, 3, True]           # <--- Variation of the N_r/N ratio
+#listOfInput = [0.05, 1.1, 4.0, 670, 6, 1, 1, 3, False]#True]#False]                                    # <--- Standard input parameters
+#listOfInput = [0.05, [1.0,2.0,3.2,4.8,6.0,7.2], 4.0, 670, 6, 1, 1, 3, True]                  # <--- Variation of the C_0/C_0_r ratio  Non-equilibbrium aprxo
+#listOfInput = [0.05, [1.0,2.0,3.2,4.8,6.0,7.2], 4.0, 670, 6, 1, 1, 3, False]                  # <--- Variation of the C_0/C_0_r ratio Equilibrium apporx
+#listOfInput = [0.05, 2.0, 4.0, 670, 6, [0.01,0.1,1,2,4,6,8], 1, 3, True]           # <--- Variation of the N_r/N ratio
 #listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, [0.8,1,1.2,1.3,1.4], 3, True]                  # <--- Variation of the external cooling rate a = L/(rho*c) <--- Low rates
 #listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, [1,2,3], True]                              # <--- Variation of the time exponent n in the JMA-eq.
 
@@ -47,19 +48,17 @@ C_e = 12.2              #Eutectic composition, wt% Si
 k_pc = C_s/C_e          #Partitioning coefficient defined to be C_sol/C_liq, is constant due to linearised phase diagram
 m_upper = (T_m-T_e)/C_e #rate of linear line sol-liq
 m_lower = (T_m-T_e)/C_s #rate of linear line sol-sol
-#L = 1.0746				#Latent heat [J/mm^3]
-L = 0.8                #Latent heat [J/mm^3]
+L = 1.07				#Latent heat [J/mm^3]
+#L = 0.8                #Latent heat [J/mm^3]
 rho = 2.7e-3           #Density[g/mm^3]
-C_hc = 24.20            #Heat capacity [J/mol]
-M_mAl = 26.98          #[g/mol] Molar mass Aluminium
+C_hc = 24            #Heat capacity [J/kmol]
+M_mAl = 27.0          #[g/mol] Molar mass Aluminium
 rhoC = rho/M_mAl*C_hc #Volume heat capacity [J/(Celcius*mm^3)]
-#print('rhoC1 = {0:.5f} J/Cmm^3'.format(rhoC2))
-rhoC2 = 0.0027			   #Volume heat capacity [J/(Celcius*mm^3)] density dependent
 print('rhoC = {0:.5f} J/Cmm^3'.format(rhoC))
 #Andre verdiar frå literaturen:
 lambdaL = 0.094			#Thermal conductivity liquid Al [W/(Celcius*mm)] @ 665 degrees Celcius
 lambdaS = 0.213			#Thermal conductivity solid Al [W/(Celcius*mm)] @ 630 degrees Celcius
-t_sim = 250.0					#6 seconds simulation
+t_sim = 270.0					#6 seconds simulation
 dt = 0.01
 Nt = math.ceil(t_sim/dt)
 NiS = round(20/dt)
@@ -400,7 +399,7 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
     
     SF = 0 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
  #   PB = [1,1,1,1,1,1,1] #PlotBool
-    PB = [0,1,0,1,1,0,0] #PlotBool
+    PB = [1,1,1,1,1,1,1] #PlotBool
     PL = [dfdtlist,Tlist,Xlist,flist,fmlist,Clist,dTdtlist] #PlotList
     PN = ['Evolution of solidificationrate','Temperature evolution','Scaled volume fraction evolution',\
     'Evolution of volume fraction formed', 'Evolution of maximum theoretical volume fraction', 'Evolution of Si wt% concentration in liquid', 'Evolution of temperature gradient']   #PlotNames
@@ -416,7 +415,7 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
         plt.title(PN[PI],fontsize= 30,y=1.04)
         plt.xlabel(PX)
         plt.ylabel(PY[PI])
-        params = {'font.size': 28, 'legend.fontsize': 24,'lines.linewidth': 3.0}
+        params = {'font.size': 28, 'legend.fontsize': 24,'lines.linewidth': 1.0}
         plt.rcParams.update(params)
         return 0 
     if SF:
@@ -435,12 +434,13 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
                 exec(PN_t+".set_ylabel(PY_t)")
                 exec(PN_t+".set_xlabel(PX)")
             else:
-                plt.figure()
+                plt.figure(figsize=(14,10), dpi = 600)
                 plt.plot(timelist,PL_t)
                 plt.title(PN_t,fontsize= 16,y=1.04)
                 plt.xlabel(PX)
                 plt.ylabel(PY_t)
                 plt.rcParams.update({'font.size': 16})
+                plt.savefig(PN_t+".png",transparent=True)
 def main(argv):
     #listOfInput is orginaised as follows: [X_c, C_0, C_0_r, T_0, t_r, Nfrac, a, n, Scheil]
     #PL = [dfdtlist,Tlist,Xlist,flist,fmlist,Clist,dTdtlist] #PlotList
@@ -451,29 +451,31 @@ def main(argv):
         func = "Lever-rule method"
     print('Program started. Using the ', func)
     if type(loi[1]) == type([]):
-        plt.figure()
+        plt.figure(figsize=(14,10), dpi = 600)
         for C_0_ in loi[1]:
             solidification(loi[0], C_0_, loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8], True, r"C$_{0}$="+str(C_0_),PI_glob)
     elif type(loi[5]) == type([]):
-        plt.figure()
+        plt.figure(figsize=(14,10), dpi = 600)
         for N_frac_ in loi[5]:
             print('Started running using standard input parameters and N_frac={}\n'.format(N_frac_))
             solidification(loi[0], loi[1], loi[2], loi[3], loi[4], N_frac_, loi[6], loi[7], loi[8], True, r"N$_{r}$/N="+str(N_frac_),PI_glob)
     elif type(loi[6]) == type([]):
-        plt.figure()
+        plt.figure(figsize=(14,10), dpi = 600)
         for a in loi[6]:
             print('Started running using standard input parameters and a={}\n'.format(a))
             solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], a, loi[7], loi[8], True, "a="+str(a),PI_glob)
     elif type(loi[7]) == type([]):
-        plt.figure()
+        plt.figure(figsize=(14,10), dpi = 600)
         for n in loi[7]:
             print('Started running using standard input parameters and n={}\n'.format(n))
             solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], n, loi[8], True, "n="+str(n),PI_glob)
     else:
         solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8])
-    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+#    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    plt.legend()
+    plt.savefig("fig.png",transparent=True)
     #plt.legend()
-    plt.show()
+ #   plt.show()
     
 #Only run if this is a main file, and not a module
 if __name__ == "__main__":
