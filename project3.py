@@ -26,17 +26,18 @@ from matplotlib import pyplot as plt
     #Both C_0 and N_frac might be list, but not at the same time. Then write [C_0_0, C_0_1, C_0_2...] in stead of one number. Will then only plot the temperature evolution
 
 # Change of input parameters keeping all but one fixed:
-#listOfInput = [0.05, 2, 4.0, 670, 6, 1, 1, 3, False]#True]#False]                                    # <--- Standard input parameters
+#listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, 3, True]                                    # <--- Standard input parameters
 #listOfInput = [0.05, [1.0,2.0,3.2,4.8,6.0,7.2], 4.0, 670, 6, 1, 1, 3, True]                  # <--- Variation of the C_0/C_0_r ratio  Non-equilibbrium aprxo
 #listOfInput = [0.05, [1.0,2.0,3.2,4.8,6.0,7.2], 4.0, 670, 6, 1, 1, 3, False]                  # <--- Variation of the C_0/C_0_r ratio Equilibrium apporx
 #listOfInput = [0.05, 2.0, 4.0, 670, 6, [0.01,0.1,1,2,4,6,8], 1, 3, True]           # <--- Variation of the N_r/N ratio
-#listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, [0.8,1,1.2,1.3,1.4], 3, True]                  # <--- Variation of the external cooling rate a = L/(rho*c) <--- Low rates
+#listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, [0.6,0.8,1.0,1.2,1.4,1.6,1.8], 3, True]                  # <--- Variation of the external cooling rate a = L/(rho*c) <--- Low rates
 #listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, [1,2,3], True]                              # <--- Variation of the time exponent n in the JMA-eq.
 
 #PL = [dfdtlist0,Tlist1,Xlist2,flist3,fmlist4,Clist5,dTdtlist6] #PlotList
-PI_glob = 3 #Change if we do not want Temperatur evolution, but some other
-SF = 1 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
-PB = [1,1,0,0,0,0,0] #PlotBool
+PI_glob = 1 #Change if we do not want Temperatur evolution, but some other
+SF = 0 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
+PB = [1,1,1,1,1,1,1] #PlotBool
+SF1 = 0
 
 
 #Global variables:
@@ -371,15 +372,16 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
         t_eut = get_sol_time(0,f_eut,L,a,rhoC)
         t_f = get_sol_time(timelist[-1],f_eut,L,a,rhoC)
         print('Duration of eutectic solidification: {} s'.format(t_eut))
+        print('Final time: {} s'.format(t_f))
         tfLTts = True # t_f Less Than t_sim
         if t_f > t_sim:
             tfLTts = False
+            t_f_old = t_f
             t_f = t_sim
-        
         Tlist = Tlist + [T_e, T_e]
         timelist = timelist + [timelist[-1], t_f]
         dfdtlist = dfdtlist + [(1-flist[-1])/t_eut,(1-flist[-1])/t_eut]
-        flist = flist + [flist[-1],1]
+        flist = flist + [flist[-1],1 if tfLTts else flist[-1]+(1-flist[-1])/t_eut*(t_eut-t_f_old+t_sim)]
         print(flist[-1],flist[-2])
         Xlist = Xlist + [Xlist[-1], Xlist[-1]]
         Clist = Clist + [Clist[-1], Clist[-1]]
@@ -406,6 +408,7 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
     'Evolution of volume fraction formed', 'Evolution of maximum theoretical volume fraction', 'Evolution of Si wt% concentration in liquid', 'Evolution of temperature gradient']   #PlotNames
     PY = ['df/dt',r'Temperature [$^{\circ}$C]','X', r'f$_{s}$', 'f$_{m}$', r'C$_{L}$ [wt% Si]', 'dT/dt [$^{\circ}$C/s]']
     PNP = ['dfdt',r'Temp','X', 'fs', 'fm', 'CL', 'dTdt']
+    PLP = ['dfdt',r'Temp','X', r'f$_{s}$', r'f$_{m}$', 'CL', 'dTdt']
     PX = 't [s]'
     print('\n\n\n\nLength of vectors:\n')
     print('Timelist:')
@@ -420,6 +423,19 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
         params = {'font.size': 28, 'legend.fontsize': 24,'lines.linewidth': 1.0}
         plt.rcParams.update(params)
         return 0 
+    if SF1:
+        plt.figure(figsize=(14,10), dpi = 600)
+        for PB_t, PL_t, PN_t, PY_t,PNP_t,PLP_t in zip(PB,PL,PN, PY, PNP,PLP):
+            if PB_t:
+                plt.plot(timelist,PL_t,label = PLP_t)
+                plt.xlabel(PX)
+                plt.ylabel(PY_t)
+        plt.title('_',fontsize= 16,y=1.04)
+        plt.rcParams.update({'font.size': 16})
+        plt.legend(loc="best")
+        plt.savefig("fsfmX1.png",transparent=True)
+        exit()
+                
     if SF:
         firstname = True
         for PB_t,PNP_t in zip(PB,PNP):
@@ -461,6 +477,7 @@ def main(argv):
     if type(loi[1]) == type([]):
         plt.figure(figsize=(14,10), dpi = 600)
         for C_0_ in loi[1]:
+            print('Started running using standard input parameters and C_0={}\n'.format(C_0_))
             solidification(loi[0], C_0_, loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8], True, r"C$_{0}$="+str(C_0_),PI_glob)
     elif type(loi[5]) == type([]):
         plt.figure(figsize=(14,10), dpi = 600)
@@ -481,6 +498,7 @@ def main(argv):
         solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8])
 #    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.legend(loc="best")
+#    plt.ylim([560,680])
     plt.savefig("fig.png",transparent=True)
     #plt.legend()
  #   plt.show()
