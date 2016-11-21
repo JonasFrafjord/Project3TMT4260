@@ -26,7 +26,7 @@ from matplotlib import pyplot as plt
     #Both C_0 and N_frac might be list, but not at the same time. Then write [C_0_0, C_0_1, C_0_2...] in stead of one number. Will then only plot the temperature evolution
 
 # Change of input parameters keeping all but one fixed:
-#listOfInput = [0.05, 1.1, 4.0, 670, 6, 1, 1, 3, False]#True]#False]                                    # <--- Standard input parameters
+#listOfInput = [0.05, 2, 4.0, 670, 6, 1, 1, 3, False]#True]#False]                                    # <--- Standard input parameters
 #listOfInput = [0.05, [1.0,2.0,3.2,4.8,6.0,7.2], 4.0, 670, 6, 1, 1, 3, True]                  # <--- Variation of the C_0/C_0_r ratio  Non-equilibbrium aprxo
 #listOfInput = [0.05, [1.0,2.0,3.2,4.8,6.0,7.2], 4.0, 670, 6, 1, 1, 3, False]                  # <--- Variation of the C_0/C_0_r ratio Equilibrium apporx
 #listOfInput = [0.05, 2.0, 4.0, 670, 6, [0.01,0.1,1,2,4,6,8], 1, 3, True]           # <--- Variation of the N_r/N ratio
@@ -34,7 +34,9 @@ from matplotlib import pyplot as plt
 #listOfInput = [0.05, 2.0, 4.0, 670, 6, 1, 1, [1,2,3], True]                              # <--- Variation of the time exponent n in the JMA-eq.
 
 #PL = [dfdtlist0,Tlist1,Xlist2,flist3,fmlist4,Clist5,dTdtlist6] #PlotList
-PI_glob = 1
+PI_glob = 3 #Change if we do not want Temperatur evolution, but some other
+SF = 1 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
+PB = [1,1,0,0,0,0,0] #PlotBool
 
 
 #Global variables:
@@ -397,13 +399,13 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
 
     ################    Plotting     ######################
     
-    SF = 0 #Samefig, executes subplot which does not share yscale. For the T-dfdt plot
  #   PB = [1,1,1,1,1,1,1] #PlotBool
-    PB = [1,1,1,1,1,1,1] #PlotBool
+#    PB = [1,1,1,1,1,1,1] #PlotBool
     PL = [dfdtlist,Tlist,Xlist,flist,fmlist,Clist,dTdtlist] #PlotList
     PN = ['Evolution of solidificationrate','Temperature evolution','Scaled volume fraction evolution',\
     'Evolution of volume fraction formed', 'Evolution of maximum theoretical volume fraction', 'Evolution of Si wt% concentration in liquid', 'Evolution of temperature gradient']   #PlotNames
     PY = ['df/dt',r'Temperature [$^{\circ}$C]','X', r'f$_{s}$', 'f$_{m}$', r'C$_{L}$ [wt% Si]', 'dT/dt [$^{\circ}$C/s]']
+    PNP = ['dfdt',r'Temp','X', 'fs', 'fm', 'CL', 'dTdt']
     PX = 't [s]'
     print('\n\n\n\nLength of vectors:\n')
     print('Timelist:')
@@ -420,19 +422,21 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
         return 0 
     if SF:
         firstname = True
-        for PB_t,PN_t in zip(PB,PN):
+        for PB_t,PNP_t in zip(PB,PNP):
             if firstname and PB_t:
-                origin = PN_t
-                exec("fig, "+PN_t+" = plt.subplots()")
+                origin = PNP_t
+                exec("fig, "+PNP_t+" = plt.subplots()")
                 firstname = False
             elif PB_t:
-                exec(PN_t+"="+origin+".twinx()")
-    for PB_t, PL_t, PN_t, PY_t in zip(PB,PL,PN, PY):
+                exec(PNP_t+"="+origin+".twinx()")
+    for PB_t, PL_t, PN_t, PY_t,PNP_t in zip(PB,PL,PN, PY, PNP):
         if PB_t:
             if SF:
-                exec(PN_t+".plot(timelist,PL_t)")
-                exec(PN_t+".set_ylabel(PY_t)")
-                exec(PN_t+".set_xlabel(PX)")
+                exec(PNP_t+".plot(timelist,PL_t)")
+                exec(PNP_t+".set_ylabel(PY_t)")
+                exec(PNP_t+".set_xlabel(PX)")
+                if (PNP_t == PNP[0]):
+                    exec(PNP_t+".set_ylim([0,0.02])")
             else:
                 plt.figure(figsize=(14,10), dpi = 600)
                 plt.plot(timelist,PL_t)
@@ -441,6 +445,10 @@ def solidification(X_c, C_0, C_0_r, T_0, t_r, N_frac, a, n, Scheil, testPara = F
                 plt.ylabel(PY_t)
                 plt.rcParams.update({'font.size': 16})
                 plt.savefig(PN_t+".png",transparent=True)
+    if SF:
+        plt.show()
+ #       exec(origin+".savefig(fig.png, transparent=True)")
+        
 def main(argv):
     #listOfInput is orginaised as follows: [X_c, C_0, C_0_r, T_0, t_r, Nfrac, a, n, Scheil]
     #PL = [dfdtlist,Tlist,Xlist,flist,fmlist,Clist,dTdtlist] #PlotList
@@ -472,7 +480,7 @@ def main(argv):
     else:
         solidification(loi[0], loi[1], loi[2], loi[3], loi[4], loi[5], loi[6], loi[7], loi[8])
 #    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    plt.legend()
+    plt.legend(loc="best")
     plt.savefig("fig.png",transparent=True)
     #plt.legend()
  #   plt.show()
